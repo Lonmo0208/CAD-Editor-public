@@ -12,7 +12,7 @@ import com.github.rinorsi.cadeditor.common.EditorType;
 import com.github.rinorsi.cadeditor.common.ModTexts;
 import net.minecraft.ChatFormatting;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.SpawnEggItem;
@@ -65,7 +65,7 @@ public class EntityEntryController extends ValueEntryController<EntityEntryModel
         });
         view.getSelectEntityButton().getTooltip().add(ModTexts.choose(ModTexts.ENTITY));
         view.getSelectEntityButton().onAction(this::openSelectionScreen);
-        view.getPasteFromVaultButton().onAction(this::openVaultSelection);
+        view.getLoadVaultButton().onAction(this::openVaultSelection);
         view.getOpenEditorButton().onAction(() -> openEditor(EditorType.STANDARD));
         view.getOpenNbtEditorButton().onAction(() -> openEditor(EditorType.NBT));
         view.getOpenSnbtEditorButton().onAction(() -> openEditor(EditorType.SNBT));
@@ -98,15 +98,10 @@ public class EntityEntryController extends ValueEntryController<EntityEntryModel
 
     private void openSelectionScreen() {
         String current = view.getEntityField().getText();
-        Identifier location = ClientUtil.parseResourceLocation(current);
+        ResourceLocation location = ClientUtil.parseResourceLocation(current);
         String normalized = location != null ? location.toString() : current;
         ModScreenHandler.openListSelectionScreen(ModTexts.ENTITY, normalized,
                 ClientCache.getEntitySelectionItems(), model::setEntityId);
-    }
-
-    private void openEditor(EditorType editorType) {
-        ModScreenHandler.openEditor(editorType, new EntityEditorContext(model.copyValue(),
-                null, false, context -> model.setValue(context.getTag())));
     }
 
     private void openVaultSelection() {
@@ -118,7 +113,7 @@ public class EntityEntryController extends ValueEntryController<EntityEntryModel
             if (tag == null || tag.isEmpty()) {
                 continue;
             }
-            Identifier id = Identifier.fromNamespaceAndPath("cadeditor", "entity_entry_vault_" + i);
+            ResourceLocation id = ResourceLocation.fromNamespaceAndPath("cadeditor", "entity_entry_vault_entity_" + i);
             elements.add(new VaultEntityListSelectionElementModel(id, tag));
             entitiesById.put(id.toString(), tag.copy());
         }
@@ -132,5 +127,10 @@ public class EntityEntryController extends ValueEntryController<EntityEntryModel
             }
             model.setValue(chosen.copy());
         });
+    }
+
+    private void openEditor(EditorType editorType) {
+        ModScreenHandler.openEditor(editorType, new EntityEditorContext(model.copyValue(),
+                null, false, context -> model.setValue(context.getTag())));
     }
 }

@@ -65,8 +65,8 @@ public abstract class InventoryItemEditorPacket extends ItemEditorPacket {
         protected Update() {
         }
 
-        protected Update(REQ requestData, ResponseData responseData) {
-            super(requestData, responseData);
+        protected Update(EditorType editorType, REQ requestData, ResponseData responseData) {
+            super(editorType, requestData, responseData);
         }
 
         public int getSlot() {

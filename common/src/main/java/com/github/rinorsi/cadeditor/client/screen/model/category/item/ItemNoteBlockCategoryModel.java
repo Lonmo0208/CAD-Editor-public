@@ -9,7 +9,7 @@ import net.minecraft.core.HolderLookup;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceKey;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.world.item.ItemStack;
 
@@ -26,7 +26,7 @@ public class ItemNoteBlockCategoryModel extends ItemEditorCategoryModel {
     @Override
     protected void setupEntries() {
         ItemStack stack = getParent().getContext().getItemStack();
-        Identifier current = stack.get(DataComponents.NOTE_BLOCK_SOUND);
+        ResourceLocation current = stack.get(DataComponents.NOTE_BLOCK_SOUND);
         if (current != null) {
             soundId = current.toString();
         }
@@ -45,7 +45,7 @@ public class ItemNoteBlockCategoryModel extends ItemEditorCategoryModel {
             stack.remove(DataComponents.NOTE_BLOCK_SOUND);
             return;
         }
-        Identifier location = ClientUtil.parseResourceLocation(soundId);
+        ResourceLocation location = ClientUtil.parseResourceLocation(soundId);
         if (location == null) {
             soundEntry.setValid(false);
             return;

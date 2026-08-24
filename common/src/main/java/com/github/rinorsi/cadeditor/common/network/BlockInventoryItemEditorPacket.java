@@ -118,7 +118,7 @@ public final class BlockInventoryItemEditorPacket extends InventoryItemEditorPac
         }
 
         public Update(Response response, ItemStack itemStack) {
-            super(response.getRequestData(), new ResponseData(itemStack));
+            super(response.getEditorType(), response.getRequestData(), new ResponseData(itemStack));
         }
 
         public BlockPos getBlockPos() {

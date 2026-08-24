@@ -16,14 +16,14 @@ import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceKey;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.Bootstrap;
 import net.minecraft.world.entity.EquipmentSlotGroup;
 import net.minecraft.world.entity.ai.attributes.Attribute;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
-import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.component.ItemAttributeModifiers;
@@ -35,7 +35,7 @@ class ItemEditorModelFoodTest {
         DataBindingsImpl.init();
     }
 
-    //TODO 需要搭建更完整的组件单测/集成测试框架，顺便统计覆盖率
+    //TODO Build a more complete component unit/integration test framework and measure coverage
     private static final RegistryAccess.Frozen REGISTRY_ACCESS =
             RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY).freeze();
 
@@ -51,12 +51,7 @@ class ItemEditorModelFoodTest {
 
         CompoundTag immediateTag = context.getTag();
         Assertions.assertNotNull(immediateTag, "Context tag should be initialized after enabling");
-        Assertions.assertTrue(
-                immediateTag.getCompound("components")
-                        .map(tag -> tag.contains("minecraft:food"))
-                        .orElse(false),
-                "Food component missing immediately after enabling"
-        );
+        Assertions.assertTrue(immediateTag.getCompound("components").contains("minecraft:food", Tag.TAG_COMPOUND));
 
         model.apply();
 
@@ -65,24 +60,22 @@ class ItemEditorModelFoodTest {
                 updated.get(DataComponents.FOOD),
                 "Expected food component on context stack"
         );
-        var consumableComponent = Objects.requireNonNull(
-                updated.get(DataComponents.CONSUMABLE),
-                "Expected consumable component on context stack"
-        );
-        Assertions.assertEquals(1.6f, consumableComponent.consumeSeconds(), 1e-6f);
+        Assertions.assertEquals(1.6f, foodComponent.eatSeconds(), 1e-6f);
 
         CompoundTag tag = context.getTag();
         Assertions.assertNotNull(tag, "Context tag should be initialized");
-        CompoundTag components = requireCompound(tag, "components");
-        Assertions.assertTrue(components.contains("minecraft:food"), "Food component missing in tag");
-        CompoundTag food = requireCompound(components, "minecraft:food");
-        Assertions.assertEquals(0, food.getInt("nutrition").orElse(0));
-        Assertions.assertEquals(0.0f, food.getFloat("saturation").orElse(0.0f));
-        Assertions.assertTrue(food.getBoolean("can_always_eat").orElse(false));
-        food.getFloat("eat_seconds").ifPresent(value -> Assertions.assertEquals(1.6f, value, 1e-6f));
-        if (food.contains("using_converts_to")) {
-            Assertions.fail("using_converts_to should not be present");
+        Assertions.assertTrue(tag.contains("components", Tag.TAG_COMPOUND), "Components compound missing");
+
+        CompoundTag components = tag.getCompound("components");
+        Assertions.assertTrue(components.contains("minecraft:food", Tag.TAG_COMPOUND), "Food component missing in tag");
+        CompoundTag food = components.getCompound("minecraft:food");
+        Assertions.assertEquals(0, food.getInt("nutrition"));
+        Assertions.assertEquals(0.0f, food.getFloat("saturation"));
+        Assertions.assertTrue(food.getBoolean("can_always_eat"));
+        if (food.contains("eat_seconds", Tag.TAG_FLOAT)) {
+            Assertions.assertEquals(1.6f, food.getFloat("eat_seconds"), 1e-6f);
         }
+        Assertions.assertFalse(food.contains("using_converts_to", Tag.TAG_COMPOUND));
     }
 
     @Test
@@ -99,17 +92,17 @@ class ItemEditorModelFoodTest {
 
         CompoundTag enabledTag = context.getTag();
         Assertions.assertNotNull(enabledTag, "Tag should be initialized when food is enabled");
-        CompoundTag enabledComponents = requireCompound(enabledTag, "components");
-        Assertions.assertTrue(enabledComponents.contains("minecraft:food"), "Food component missing after enabling");
+        CompoundTag enabledComponents = enabledTag.getCompound("components");
+        Assertions.assertTrue(enabledComponents.contains("minecraft:food", Tag.TAG_COMPOUND), "Food component missing after enabling");
         Assertions.assertFalse(enabledComponents.contains("!minecraft:food"), "Removal marker should not persist while enabled");
 
         model.disableFoodComponent();
 
         CompoundTag disabledTag = context.getTag();
         Assertions.assertNotNull(disabledTag, "Tag should remain available after disabling");
-        CompoundTag disabledComponents = requireCompound(disabledTag, "components");
-        Assertions.assertFalse(disabledComponents.contains("minecraft:food"), "Food component should be cleared when disabled");
-        Assertions.assertTrue(disabledComponents.contains("!minecraft:food"), "Removal marker missing when food disabled");
+        CompoundTag disabledComponents = disabledTag.getCompound("components");
+        Assertions.assertFalse(disabledComponents.contains("minecraft:food", Tag.TAG_COMPOUND), "Food component should be cleared when disabled");
+        Assertions.assertTrue(disabledComponents.contains("!minecraft:food", Tag.TAG_COMPOUND), "Removal marker missing when food disabled");
 
         ItemStack disabledStack = context.getItemStack();
         Assertions.assertFalse(disabledStack.has(DataComponents.FOOD), () -> "Stack should stop being edible after disabling. Tag=" + disabledComponents);
@@ -121,9 +114,9 @@ class ItemEditorModelFoodTest {
 
         CompoundTag reenabledTag = context.getTag();
         Assertions.assertNotNull(reenabledTag, "Tag should still be initialized after re-enabling");
-        CompoundTag reenabledComponents = requireCompound(reenabledTag, "components");
-        Assertions.assertTrue(reenabledComponents.contains("minecraft:food"), "Food component missing after re-enabling");
-        Assertions.assertFalse(reenabledComponents.contains("!minecraft:food"), "Removal marker should be cleared after re-enabling");
+        CompoundTag reenabledComponents = reenabledTag.getCompound("components");
+        Assertions.assertTrue(reenabledComponents.contains("minecraft:food", Tag.TAG_COMPOUND), "Food component missing after re-enabling");
+        Assertions.assertFalse(reenabledComponents.contains("!minecraft:food", Tag.TAG_COMPOUND), "Removal marker should be cleared after re-enabling");
     }
 
     @Test
@@ -150,14 +143,20 @@ class ItemEditorModelFoodTest {
 
         CompoundTag tag = context.getTag();
         Assertions.assertNotNull(tag, "Context tag should be initialized");
-        CompoundTag components = requireCompound(tag, "components");
-        Assertions.assertFalse(components.contains("!minecraft:lore"));
-        Assertions.assertFalse(components.contains("!minecraft:rarity"));
-        Assertions.assertFalse(components.contains("!minecraft:repair_cost"));
-        var remainder = updated.get(DataComponents.USE_REMAINDER);
-        Assertions.assertNotNull(remainder, "Expected use remainder component");
-        ItemStack remainderStack = remainder.convertInto().copy();
-        Assertions.assertEquals(getItem("minecraft:diamond_sword"), remainderStack.getItem());
+        CompoundTag components = tag.getCompound("components");
+        Assertions.assertTrue(components.contains("!minecraft:lore", Tag.TAG_COMPOUND));
+        Assertions.assertTrue(components.contains("!minecraft:rarity", Tag.TAG_COMPOUND));
+        Assertions.assertTrue(components.contains("!minecraft:repair_cost", Tag.TAG_COMPOUND));
+        CompoundTag food = components.getCompound("minecraft:food");
+        CompoundTag convert = food.getCompound("using_converts_to");
+
+        Assertions.assertEquals("minecraft:diamond_sword", convert.getString("id"));
+        if (convert.contains("components", Tag.TAG_COMPOUND)) {
+            CompoundTag convertComponents = convert.getCompound("components");
+            Assertions.assertFalse(convertComponents.contains("minecraft:lore", Tag.TAG_COMPOUND));
+            Assertions.assertFalse(convertComponents.contains("minecraft:rarity", Tag.TAG_COMPOUND));
+            Assertions.assertFalse(convertComponents.contains("minecraft:repair_cost", Tag.TAG_COMPOUND));
+        }
     }
 
     @Test
@@ -178,39 +177,38 @@ class ItemEditorModelFoodTest {
 
         CompoundTag tag = context.getTag();
         Assertions.assertNotNull(tag, "Context tag should be initialized");
-        ItemStack updated = context.getItemStack();
-        var remainder = updated.get(DataComponents.USE_REMAINDER);
-        Assertions.assertNotNull(remainder, "Expected use remainder component");
-        ItemStack remainderStack = remainder.convertInto().copy();
-        Assertions.assertEquals(getItem("minecraft:diamond_sword"), remainderStack.getItem());
-        Assertions.assertNotNull(remainderStack.get(DataComponents.ATTRIBUTE_MODIFIERS));
-        Assertions.assertNotNull(remainderStack.get(DataComponents.CUSTOM_NAME));
+        CompoundTag components = tag.getCompound("components");
+        CompoundTag food = components.getCompound("minecraft:food");
+        Assertions.assertEquals("minecraft:diamond_sword", food.getCompound("using_converts_to").getString("id"));
+
+        CompoundTag convert = food.getCompound("using_converts_to");
+        Assertions.assertTrue(convert.contains("components", Tag.TAG_COMPOUND));
+        CompoundTag convertComponents = convert.getCompound("components");
+        Assertions.assertTrue(convertComponents.contains("minecraft:attribute_modifiers", Tag.TAG_COMPOUND));
+        Assertions.assertNotNull(convertComponents.get("minecraft:custom_name"));
     }
 
     private static Item getItem(String id) {
-        Identifier location = Identifier.parse(id);
-        return BuiltInRegistries.ITEM.getOptional(location)
-                .orElseThrow(() -> new IllegalArgumentException("Unknown item id: " + id));
-    }
-
-    private static CompoundTag requireCompound(CompoundTag tag, String key) {
-        return tag.getCompound(key)
-                .orElseThrow(() -> new AssertionError("Missing compound tag: " + key));
+        ResourceLocation location = ResourceLocation.parse(id);
+        return BuiltInRegistries.ITEM.get(location);
     }
 
     private static ItemAttributeModifiers createSwordModifiers() {
-        Holder<Attribute> damageAttr = Attributes.ATTACK_DAMAGE;
-        Holder<Attribute> speedAttr = Attributes.ATTACK_SPEED;
+        var attributeLookup = REGISTRY_ACCESS.lookupOrThrow(Registries.ATTRIBUTE);
+        Holder<Attribute> damageAttr = attributeLookup.get(ResourceKey.create(
+                Registries.ATTRIBUTE, ResourceLocation.withDefaultNamespace("generic.attack_damage"))).orElseThrow();
+        Holder<Attribute> speedAttr = attributeLookup.get(ResourceKey.create(
+                Registries.ATTRIBUTE, ResourceLocation.withDefaultNamespace("generic.attack_speed"))).orElseThrow();
 
         ItemAttributeModifiers modifiers = ItemAttributeModifiers.EMPTY;
         modifiers = modifiers.withModifierAdded(
                 damageAttr,
-                new AttributeModifier(Identifier.withDefaultNamespace("18481079-2fa9-3c5c-aa38-fefac3636197"),
+                new AttributeModifier(ResourceLocation.withDefaultNamespace("18481079-2fa9-3c5c-aa38-fefac3636197"),
                         4.0, AttributeModifier.Operation.ADD_VALUE),
                 EquipmentSlotGroup.MAINHAND);
         modifiers = modifiers.withModifierAdded(
                 speedAttr,
-                new AttributeModifier(Identifier.withDefaultNamespace("db990990-cabc-3dcc-8fc5-fbc9e518c6c3"),
+                new AttributeModifier(ResourceLocation.withDefaultNamespace("db990990-cabc-3dcc-8fc5-fbc9e518c6c3"),
                         -2.4000000953674316, AttributeModifier.Operation.ADD_VALUE),
                 EquipmentSlotGroup.MAINHAND);
         return modifiers;

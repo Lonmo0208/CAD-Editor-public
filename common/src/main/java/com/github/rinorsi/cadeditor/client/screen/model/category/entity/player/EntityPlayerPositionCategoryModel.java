@@ -5,7 +5,6 @@ import com.github.rinorsi.cadeditor.client.screen.model.category.entity.EntityCa
 import com.github.rinorsi.cadeditor.client.screen.model.entry.DoubleEntryModel;
 import com.github.rinorsi.cadeditor.client.screen.model.entry.FloatEntryModel;
 import com.github.rinorsi.cadeditor.client.screen.model.entry.IntegerEntryModel;
-import com.github.rinorsi.cadeditor.client.util.NbtHelper;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
@@ -53,26 +52,26 @@ public class EntityPlayerPositionCategoryModel extends EntityCategoryModel {
 
     private void readValues() {
         CompoundTag data = ensurePlayerTag();
-        ListTag posList = NbtHelper.getListOrEmpty(data, "Pos");
+        ListTag posList = data.getList("Pos", Tag.TAG_DOUBLE);
         if (posList.size() == 3) {
-            posX = NbtHelper.getListDouble(posList, 0, posX);
-            posY = NbtHelper.getListDouble(posList, 1, posY);
-            posZ = NbtHelper.getListDouble(posList, 2, posZ);
+            posX = posList.getDouble(0);
+            posY = posList.getDouble(1);
+            posZ = posList.getDouble(2);
         }
-        ListTag rotList = NbtHelper.getListOrEmpty(data, "Rotation");
+        ListTag rotList = data.getList("Rotation", Tag.TAG_FLOAT);
         if (rotList.size() == 2) {
-            rotY = NbtHelper.getListFloat(rotList, 0, rotY);
-            rotX = NbtHelper.getListFloat(rotList, 1, rotX);
+            rotY = rotList.getFloat(0);
+            rotX = rotList.getFloat(1);
         }
-        ListTag motionList = NbtHelper.getListOrEmpty(data, "Motion");
+        ListTag motionList = data.getList("Motion", Tag.TAG_DOUBLE);
         if (motionList.size() == 3) {
-            motionX = NbtHelper.getListDouble(motionList, 0, motionX);
-            motionY = NbtHelper.getListDouble(motionList, 1, motionY);
-            motionZ = NbtHelper.getListDouble(motionList, 2, motionZ);
+            motionX = motionList.getDouble(0);
+            motionY = motionList.getDouble(1);
+            motionZ = motionList.getDouble(2);
         }
-        fireTicks = NbtHelper.getInt(data, "Fire", 0);
-        airTicks = NbtHelper.getInt(data, "Air", 0);
-        fallDistance = NbtHelper.getFloat(data, "FallDistance", 0f);
+        fireTicks = data.getInt("Fire");
+        airTicks = data.getInt("Air");
+        fallDistance = data.contains("FallDistance", Tag.TAG_FLOAT) ? data.getFloat("FallDistance") : 0f;
     }
 
     private void writeValues() {

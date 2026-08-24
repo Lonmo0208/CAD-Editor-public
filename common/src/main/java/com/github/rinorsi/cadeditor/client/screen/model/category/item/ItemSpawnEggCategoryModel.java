@@ -6,14 +6,13 @@ import com.github.rinorsi.cadeditor.client.screen.model.entry.EntityEntryModel;
 import com.github.rinorsi.cadeditor.common.ModTexts;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.resources.Identifier;
+import net.minecraft.nbt.Tag;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.util.ProblemReporter;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.SpawnEggItem;
-import net.minecraft.world.item.component.TypedEntityData;
-import net.minecraft.world.level.storage.TagValueInput;
+import net.minecraft.world.item.component.CustomData;
 
 import java.util.Set;
 
@@ -42,11 +41,9 @@ public class ItemSpawnEggCategoryModel extends ItemEditorCategoryModel {
     @Override
     protected void setupEntries() {
         var stack = getParent().getContext().getItemStack();
-        var registries = ClientUtil.registryAccess();
         CompoundTag editorData = prepareEditorData(spawnData, stack);
-        var valueInput = TagValueInput.create(ProblemReporter.DISCARDING, registries, editorData);
         entityEntry = new EntityEntryModel(this,
-                EntityType.by(valueInput).orElse(item.getType(stack)),
+                EntityType.by(editorData).orElse(item.getType(stack)),
                 editorData,
                 value -> {
                 });
@@ -68,16 +65,18 @@ public class ItemSpawnEggCategoryModel extends ItemEditorCategoryModel {
         spawnData = sanitizedData.copy();
 
         CompoundTag itemData = getData();
-        CompoundTag legacyTag = itemData.getCompound("tag").orElse(null);
-        if (legacyTag != null && legacyTag.contains("EntityTag")) {
-            legacyTag.remove("EntityTag");
+        if (itemData.contains("tag", Tag.TAG_COMPOUND)) {
+            CompoundTag legacyTag = itemData.getCompound("tag");
+            if (legacyTag.contains("EntityTag", Tag.TAG_COMPOUND)) {
+                legacyTag.remove("EntityTag");
+            }
             if (legacyTag.isEmpty()) {
                 itemData.remove("tag");
             }
         }
         if (sanitizedData.isEmpty()
-                || !sanitizedData.contains("id")
-                || sanitizedData.getString("id").orElse("").isEmpty()) {
+                || !sanitizedData.contains("id", Tag.TAG_STRING)
+                || sanitizedData.getString("id").isEmpty()) {
             stack.remove(DataComponents.ENTITY_DATA);
             spawnData = new CompoundTag();
             initialSerializedData = new CompoundTag();
@@ -86,30 +85,25 @@ public class ItemSpawnEggCategoryModel extends ItemEditorCategoryModel {
         }
         EntityType<?> entityType = resolveEntityType(stack, sanitizedData);
         CompoundTag componentPayload = sanitizedData.copy();
-        componentPayload.remove("id");
-        stack.set(DataComponents.ENTITY_DATA, TypedEntityData.of(entityType, componentPayload));
+        // Keep id to preserve non-default entity assignment when command/data is exported.
+        componentPayload.putString("id", BuiltInRegistries.ENTITY_TYPE.getKey(entityType).toString());
+        stack.set(DataComponents.ENTITY_DATA, CustomData.of(componentPayload));
         spawnData = componentPayload.copy();
-        spawnData.putString("id", BuiltInRegistries.ENTITY_TYPE.getKey(entityType).toString());
         initialSerializedData = spawnData.copy();
         initialEditorData = editorValue.copy();
     }
 
     private static CompoundTag readSpawnData(ItemStack stack, CompoundTag rootTag) {
         if (stack != null) {
-            TypedEntityData<EntityType<?>> data = stack.get(DataComponents.ENTITY_DATA);
-            if (data != null) {
-                CompoundTag tag = data.copyTagWithoutId();
-                tag.putString("id", BuiltInRegistries.ENTITY_TYPE.getKey(data.type()).toString());
-                return tag;
+            CustomData data = stack.get(DataComponents.ENTITY_DATA);
+            if (data != null && !data.isEmpty()) {
+                return data.copyTag();
             }
         }
-        if (rootTag != null) {
-            CompoundTag legacy = rootTag.getCompound("tag").orElse(null);
-            if (legacy != null) {
-                CompoundTag entityTag = legacy.getCompound("EntityTag").orElse(null);
-                if (entityTag != null) {
-                    return entityTag.copy();
-                }
+        if (rootTag != null && rootTag.contains("tag", Tag.TAG_COMPOUND)) {
+            CompoundTag legacy = rootTag.getCompound("tag");
+            if (legacy.contains("EntityTag", Tag.TAG_COMPOUND)) {
+                return legacy.getCompound("EntityTag").copy();
             }
         }
         return new CompoundTag();
@@ -118,7 +112,7 @@ public class ItemSpawnEggCategoryModel extends ItemEditorCategoryModel {
     private CompoundTag prepareEditorData(CompoundTag source, ItemStack stack) {
         CompoundTag normalized = sanitizeSpawnEggComponentPayload(source);
         EntityType<?> type = resolveEntityType(stack, normalized);
-        Identifier key = BuiltInRegistries.ENTITY_TYPE.getKey(type);
+        ResourceLocation key = BuiltInRegistries.ENTITY_TYPE.getKey(type);
         if (key != null) {
             normalized.putString("id", key.toString());
         }
@@ -130,12 +124,12 @@ public class ItemSpawnEggCategoryModel extends ItemEditorCategoryModel {
             return new CompoundTag();
         }
         CompoundTag sanitized = source.copy();
-        String id = sanitized.getStringOr("id", "").trim();
+        String id = sanitized.getString("id").trim();
         if (id.isEmpty()) {
             sanitized.remove("id");
             return sanitized;
         }
-        Identifier parsed = ClientUtil.parseResourceLocation(id);
+        ResourceLocation parsed = ClientUtil.parseResourceLocation(id);
         sanitized.putString("id", parsed == null ? id : parsed.toString());
         return sanitized;
     }
@@ -148,18 +142,18 @@ public class ItemSpawnEggCategoryModel extends ItemEditorCategoryModel {
         for (String key : TRANSIENT_ENTITY_TAG_KEYS) {
             sanitized.remove(key);
         }
-        float health = sanitized.getFloatOr("Health", Float.NaN);
-        if (!Float.isNaN(health) && health <= 0f) {
+        float health = sanitized.getFloat("Health");
+        if (sanitized.contains("Health", Tag.TAG_FLOAT) && health <= 0f) {
             sanitized.remove("Health");
         }
         return sanitized;
     }
 
     private EntityType<?> resolveEntityType(ItemStack stack, CompoundTag data) {
-        String id = data == null ? "" : data.getString("id").orElse("");
-        Identifier parsed = ClientUtil.parseResourceLocation(id);
+        String id = data == null ? "" : data.getString("id");
+        ResourceLocation parsed = ClientUtil.parseResourceLocation(id);
         if (parsed != null && BuiltInRegistries.ENTITY_TYPE.containsKey(parsed)) {
-            return BuiltInRegistries.ENTITY_TYPE.getValue(parsed);
+            return BuiltInRegistries.ENTITY_TYPE.getOptional(parsed).orElse(item.getType(stack));
         }
         return item.getType(stack);
     }

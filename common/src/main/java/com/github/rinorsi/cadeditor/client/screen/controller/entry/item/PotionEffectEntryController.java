@@ -7,7 +7,7 @@ import com.github.rinorsi.cadeditor.client.screen.view.entry.item.PotionEffectEn
 import com.github.rinorsi.cadeditor.common.ModTexts;
 import com.github.franckyi.guapi.api.util.Predicates;
 import net.minecraft.ChatFormatting;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
@@ -41,10 +41,7 @@ public class PotionEffectEntryController extends SelectionEntryController<Potion
         view.getDurationField().textProperty().addListener(value -> {
             if (view.getDurationField().isValid()) {
                 if (model.isUseSeconds()) {
-                    double seconds = Double.parseDouble(value);
-                    if (Double.isFinite(seconds)) {
-                        model.setDuration(secondsToTicks(seconds));
-                    }
+                    model.setDuration(secondsToTicks(Double.parseDouble(value)));
                 } else {
                     model.setDuration(Integer.parseInt(value));
                 }
@@ -84,8 +81,7 @@ public class PotionEffectEntryController extends SelectionEntryController<Potion
         if (model.isUseSeconds()) {
             view.getDurationField().setValidator(value -> {
                 try {
-                    double seconds = Double.parseDouble(value);
-                    return Double.isFinite(seconds) && seconds > 0;
+                    return Double.parseDouble(value) > 0;
                 } catch (NumberFormatException e) {
                     return false;
                 }
@@ -100,7 +96,7 @@ public class PotionEffectEntryController extends SelectionEntryController<Potion
     }
 
     private void updatePreview(String value) {
-        Identifier id = parseResourceLocation(value);
+        ResourceLocation id = parseResourceLocation(value);
         if (id == null) {
             view.setPreviewVisible(false);
             return;

@@ -1,18 +1,14 @@
-buildscript {
-    dependencies {
-        classpath localGroovy()
-    }
-}
+import groovy.json.JsonSlurper
 
 plugins {
     id "architectury-plugin" version "3.4.162"
-    id "dev.architectury.loom" version "1.13.467" apply false
+    id "dev.architectury.loom" version "1.10.433" apply false
     id "me.shedaniel.unified-publishing" version "0.1.+" apply false
     id "com.github.breadmoirai.github-release" version "2.4.1"
     id "maven-publish"
     id "java"
 }
-//TODO 记得补上自动变更日志和矩阵发布脚本。
+//TODO remember to add the auto changelog and matrix release script.
 
 architectury {
     minecraft = rootProject.minecraft_version
@@ -28,12 +24,6 @@ subprojects {
     dependencies {
         minecraft "com.mojang:minecraft:${rootProject.minecraft_version}"
         mappings loom.officialMojangMappings()
-    }
-
-    if (project.name != "common") {
-        tasks.withType(Test).configureEach {
-            enabled = false
-        }
     }
 }
 
@@ -72,11 +62,8 @@ allprojects {
     }
 
     ext {
-        def slurper = new groovy.json.JsonSlurper()
+        def slurper = new JsonSlurper()
         def versionsFile = rootProject.file("versions.json")
-        if (!versionsFile.exists()) {
-            versionsFile = rootProject.file("common/src/main/resources/versions.json")
-        }
         def versionsMap = versionsFile.exists() ? slurper.parse(versionsFile) : [:]
 
         def verKey = (project.version ?: "").toString()
@@ -90,9 +77,6 @@ allprojects {
 
         curseforgeProjectId = "1352735"
         modrinthProjectId  = "MJW1h2CF"
-        mixinConfigs = rootProject.findProperty("mixin_configs") ?: "cadeditor-common.mixins.json"
-        mixinVersion = rootProject.findProperty("mixin_version") ?: "0.8.7"
-        fabricMixinVersion = rootProject.findProperty("fabric_mixin_version") ?: "0.12.5+mixin.0.8.5"
     }
 
     base {
@@ -115,9 +99,16 @@ allprojects {
                 'Implementation-Title': project.name,
                 'Implementation-Version': project.version,
                 'Implementation-Vendor': rootProject.hasProperty('maven_group') ? rootProject.maven_group : '',
-                'MixinConfigs': project.mixinConfigs ?: '',
-                'MixinVersion': project.mixinVersion ?: '',
-                'Fabric-Mixin-Version': project.fabricMixinVersion ?: ''
+                'MixinConfigs': 'cadeditor-common.mixins.json',
+                'MixinVersion': '0.8.7',
+                'Fabric-Mixin-Version': '0.15.4+mixin.0.8.7'
+            )
+        }
+        doFirst {
+            manifest.attributes(
+                    'MixinConfigs': 'cadeditor-common.mixins.json',
+                    'MixinVersion': '0.8.7',
+                    'Fabric-Mixin-Version': '0.15.4+mixin.0.8.7'
             )
         }
     }
@@ -125,7 +116,6 @@ allprojects {
     afterEvaluate {
         tasks.matching { it.name == 'remapJar' || it.name.endsWith('RemapJar') }.configureEach { t ->
             try {
-                t.duplicatesStrategy = DuplicatesStrategy.EXCLUDE
                 t.from(rootProject.file('LICENSE')) {
                     into('META-INF')
                 }
@@ -135,27 +125,10 @@ allprojects {
                 t.from(rootProject.file('README.md')) {
                     into('META-INF')
                 }
-                t.exclude('META-INF/LICENSE', 'META-INF/LICENSE.txt', 'META-INF/NOTICE', 'META-INF/NOTICE.txt')
             } catch (Throwable ignored) {
             }
         }
     }
-}
-
-testing {
-    suites {
-        test {
-            useJUnitJupiter()
-            dependencies {
-                implementation "org.junit.jupiter:junit-jupiter-api:5.10.2"
-                runtimeOnly "org.junit.jupiter:junit-jupiter-engine:5.10.2"
-            }
-        }
-    }
-}
-
-tasks.named("test", Test).configure {
-    enabled = false
 }
 
 githubRelease {
@@ -178,4 +151,11 @@ githubRelease {
             } catch (Throwable ignored) {}
         }
     }
+}
+
+// One-click build for both platforms (NeoForge + Fabric): full and Lite variants
+tasks.register('buildAll') {
+    group = "build"
+    description = "构建 NeoForge 与 Fabric 的完整版 + Lite 精简版模组"
+    dependsOn ':neoforge:build', ':fabric:build'
 }

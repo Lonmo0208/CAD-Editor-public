@@ -7,11 +7,8 @@ import com.github.rinorsi.cadeditor.client.screen.model.category.vault.VaultEnti
 import com.github.rinorsi.cadeditor.client.screen.model.entry.EntryModel;
 import net.minecraft.client.Minecraft;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.util.ProblemReporter;
 import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.EntitySpawnReason;
 import net.minecraft.world.entity.EntityType;
-import net.minecraft.world.level.storage.TagValueInput;
 
 public class VaultEntityEntryModel extends EntryModel {
     private final ObjectProperty<CompoundTag> tagProperty;
@@ -20,14 +17,7 @@ public class VaultEntityEntryModel extends EntryModel {
     public VaultEntityEntryModel(VaultEntityCategoryModel parent, CompoundTag tag) {
         super(parent);
         tagProperty = ObjectProperty.create(tag);
-        entityProperty = tagProperty.map(tag1 -> {
-            var level = Minecraft.getInstance().level;
-            if (tag1 == null || level == null) {
-                return null;
-            }
-            var input = TagValueInput.create(ProblemReporter.DISCARDING, level.registryAccess(), tag1);
-            return EntityType.create(input, level, EntitySpawnReason.LOAD).orElse(null);
-        });
+        entityProperty = tagProperty.map(tag1 -> EntityType.create(tag1, Minecraft.getInstance().level).orElse(null));
     }
 
     public CompoundTag getData() {

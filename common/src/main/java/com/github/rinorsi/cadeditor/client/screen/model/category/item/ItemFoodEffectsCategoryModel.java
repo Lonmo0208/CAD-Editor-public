@@ -8,16 +8,16 @@ import com.github.rinorsi.cadeditor.client.screen.model.entry.EntryModel;
 import com.github.rinorsi.cadeditor.client.screen.model.entry.item.FoodEffectEntryModel;
 import com.github.rinorsi.cadeditor.client.util.CompatFood;
 import com.github.rinorsi.cadeditor.common.ModTexts;
-import com.github.rinorsi.cadeditor.client.screen.model.category.item.FoodComponentState.FoodEffectData;
 
 import net.minecraft.core.Holder;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.resources.ResourceKey;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.effect.MobEffect;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.food.FoodProperties;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -29,9 +29,11 @@ import java.util.Set;
 public class ItemFoodEffectsCategoryModel extends ItemEditorCategoryModel {
     private static final int MAX_DURATION_TICKS = 20 * 60 * 60;
     private static final int MAX_AMPLIFIER = 255;
+    private static final int DEFAULT_SELECTION_DURATION = 160;
+    private static final float DEFAULT_SELECTION_PROBABILITY = 1.0f;
 
     private final FoodComponentState state;
-    private List<FoodEffectData> stagedEffects = List.of();
+    private List<FoodProperties.PossibleEffect> stagedEffects = List.of();
 
     public ItemFoodEffectsCategoryModel(ItemEditorModel editor) {
         super(ModTexts.gui("food_effects"), editor);
@@ -80,11 +82,11 @@ public class ItemFoodEffectsCategoryModel extends ItemEditorCategoryModel {
         getParent().applyFoodComponent();
     }
 
-    private EntryModel createFoodEffectEntry(FoodEffectData effect) {
+    private EntryModel createFoodEffectEntry(FoodProperties.PossibleEffect effect) {
         if (effect != null) {
             MobEffectInstance instance = effect.effect();
             String id = instance.getEffect().unwrapKey()
-                    .map(key -> key.identifier().toString())
+                    .map(key -> key.location().toString())
                     .orElse("minecraft:empty");
             return new FoodEffectEntryModel(this,
                     id,
@@ -96,31 +98,10 @@ public class ItemFoodEffectsCategoryModel extends ItemEditorCategoryModel {
                     effect.probability(),
                     this::addFoodEffect);
         }
-        String defaultId = MobEffects.SPEED.unwrapKey()
-                .map(key -> key.identifier().toString())
-                .orElse("minecraft:speed");
+        String defaultId = MobEffects.MOVEMENT_SPEED.unwrapKey()
+                .map(key -> key.location().toString())
+                .orElse("minecraft:movement_speed");
         return new FoodEffectEntryModel(this, defaultId, 0, 1, false, true, true, 1.0f, this::addFoodEffect);
-    }
-
-    private FoodEffectEntryModel createFoodEffectEntryFor(Identifier id) {
-        var registryOpt = ClientUtil.registryAccess().lookup(Registries.MOB_EFFECT);
-        if (registryOpt.isPresent()) {
-            var holder = registryOpt.get().get(ResourceKey.create(Registries.MOB_EFFECT, id));
-            if (holder.isPresent()) {
-                MobEffectInstance instance = new MobEffectInstance(
-                        holder.get(),
-                        160,
-                        0,
-                        false,
-                        true,
-                        true
-                );
-                return (FoodEffectEntryModel) createFoodEffectEntry(new FoodEffectData(instance, 1.0f));
-            }
-        }
-        FoodEffectEntryModel entry = (FoodEffectEntryModel) createFoodEffectEntry(null);
-        entry.setValue(id.toString());
-        return entry;
     }
 
     private void addFoodEffect(String id,
@@ -133,7 +114,7 @@ public class ItemFoodEffectsCategoryModel extends ItemEditorCategoryModel {
         var registryOpt = ClientUtil.registryAccess().lookup(Registries.MOB_EFFECT);
         if (registryOpt.isEmpty()) return;
 
-        Identifier rl = Identifier.tryParse(id);
+        ResourceLocation rl = ResourceLocation.tryParse(id);
         if (rl == null) return;
 
         Holder<MobEffect> holder = registryOpt.get()
@@ -153,46 +134,50 @@ public class ItemFoodEffectsCategoryModel extends ItemEditorCategoryModel {
                 showIcon
         );
 
-        List<FoodEffectData> list;
-        if (stagedEffects instanceof ArrayList<FoodEffectData> existing) {
+        List<FoodProperties.PossibleEffect> list;
+        if (stagedEffects instanceof ArrayList<FoodProperties.PossibleEffect> existing) {
             list = existing;
         } else {
             list = new ArrayList<>();
             stagedEffects = list;
         }
 
-        CompatFood.makeApplyEffect(instance, probability).ifPresent(list::add);
+        CompatFood.makePossibleEffect(instance, probability).ifPresent(list::add);
     }
 
     private void openEffectSelection() {
-        Set<Identifier> current = collectEffectIds();
-        ModScreenHandler.openListSelectionScreen(
-                ModTexts.EFFECTS.copy(),
-                "",
-                ClientCache.getEffectSelectionItems(),
-                value -> {},
-                true,
+        Set<ResourceLocation> selected = collectEffectIds();
+        ModScreenHandler.openListSelectionScreen(ModTexts.EFFECTS.copy(),
+                "", ClientCache.getEffectSelectionItems(),
+                value -> {}, true,
                 this::applySelectedEffects,
-                current
-        );
+                selected);
     }
 
-    private void applySelectedEffects(List<Identifier> selected) {
-        Map<Identifier, FoodEffectEntryModel> existing = new LinkedHashMap<>();
+    private void applySelectedEffects(List<ResourceLocation> selections) {
+        Map<ResourceLocation, FoodEffectEntryModel> existing = new LinkedHashMap<>();
         for (EntryModel entry : getEntries()) {
-            if (entry instanceof FoodEffectEntryModel effectEntry) {
-                Identifier id = Identifier.tryParse(effectEntry.getValue());
+            if (entry instanceof FoodEffectEntryModel effect) {
+                ResourceLocation id = ResourceLocation.tryParse(effect.getValue());
                 if (id != null) {
-                    existing.putIfAbsent(id, effectEntry);
+                    existing.putIfAbsent(id, effect);
                 }
             }
         }
         List<FoodEffectEntryModel> desired = new ArrayList<>();
-        if (selected != null) {
-            for (Identifier id : selected) {
+        if (selections != null) {
+            for (ResourceLocation id : selections) {
                 FoodEffectEntryModel entry = existing.remove(id);
                 if (entry == null) {
-                    entry = createFoodEffectEntryFor(id);
+                    entry = (FoodEffectEntryModel) createFoodEffectEntry(null);
+                    entry.setValue(id.toString());
+                    entry.setDuration(DEFAULT_SELECTION_DURATION);
+                    entry.setUseSeconds(true);
+                    entry.setProbability(DEFAULT_SELECTION_PROBABILITY);
+                    entry.setAmplifier(0);
+                    entry.setAmbient(false);
+                    entry.setShowParticles(true);
+                    entry.setShowIcon(true);
                 }
                 desired.add(entry);
             }
@@ -210,11 +195,11 @@ public class ItemFoodEffectsCategoryModel extends ItemEditorCategoryModel {
         updateEntryListIndexes();
     }
 
-    private Set<Identifier> collectEffectIds() {
-        Set<Identifier> ids = new LinkedHashSet<>();
+    private Set<ResourceLocation> collectEffectIds() {
+        Set<ResourceLocation> ids = new LinkedHashSet<>();
         for (EntryModel entry : getEntries()) {
-            if (entry instanceof FoodEffectEntryModel effectEntry) {
-                Identifier id = Identifier.tryParse(effectEntry.getValue());
+            if (entry instanceof FoodEffectEntryModel effect) {
+                ResourceLocation id = ResourceLocation.tryParse(effect.getValue());
                 if (id != null) {
                     ids.add(id);
                 }

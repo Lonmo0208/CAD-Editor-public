@@ -6,7 +6,6 @@ import com.github.rinorsi.cadeditor.client.ModScreenHandler;
 import com.github.rinorsi.cadeditor.client.screen.model.ItemEditorModel;
 import com.github.rinorsi.cadeditor.client.screen.model.entry.EntryModel;
 import com.github.rinorsi.cadeditor.client.screen.model.entry.item.PotionEffectEntryModel;
-import com.github.rinorsi.cadeditor.client.util.NbtHelper;
 import com.github.rinorsi.cadeditor.common.ModTexts;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.Registries;
@@ -14,7 +13,7 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.resources.ResourceKey;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.component.SuspiciousStewEffects;
@@ -59,7 +58,7 @@ public class ItemSuspiciousStewEffectsCategoryModel extends ItemEditorCategoryMo
             component.effects().forEach(entry -> {
                 String id = entry.effect()
                         .unwrapKey()
-                        .map(key -> key.identifier().toString())
+                        .map(key -> key.location().toString())
                         .orElse("minecraft:empty");
                 effects.add(new EffectData(id, entry.duration()));
             });
@@ -69,18 +68,16 @@ public class ItemSuspiciousStewEffectsCategoryModel extends ItemEditorCategoryMo
         }
 
         CompoundTag data = getData();
-        if (data == null) return List.of();
-        CompoundTag comps = data.getCompound("components").orElse(null);
-        if (comps == null) return List.of();
-        ListTag list = comps.getList("minecraft:suspicious_stew_effects").orElse(null);
-        if (list == null) return List.of();
+        if (data == null || !data.contains("components", Tag.TAG_COMPOUND)) return List.of();
+        CompoundTag comps = data.getCompound("components");
+        if (!comps.contains("minecraft:suspicious_stew_effects", Tag.TAG_LIST)) return List.of();
+        ListTag list = comps.getList("minecraft:suspicious_stew_effects", Tag.TAG_COMPOUND);
         List<EffectData> out = new ArrayList<>(list.size());
         for (int i = 0; i < list.size(); i++) {
-            CompoundTag c = list.getCompound(i).orElse(null);
-            if (c == null) continue;
-            String id = NbtHelper.getString(c, "id", "");
-            if (id.isEmpty()) continue;
-            int duration = c.getIntOr("duration", 160);
+            CompoundTag c = list.getCompound(i);
+            if (!c.contains("id", Tag.TAG_STRING)) continue;
+            String id = c.getString("id");
+            int duration = c.contains("duration", Tag.TAG_INT) ? c.getInt("duration") : 160;
             out.add(new EffectData(id, duration));
         }
         return out;
@@ -116,14 +113,14 @@ public class ItemSuspiciousStewEffectsCategoryModel extends ItemEditorCategoryMo
         if (data != null) {
             return new PotionEffectEntryModel(this, data.id(), 0, data.duration(), false, true, true, this::collectEffect);
         }
-        String defaultId = MobEffects.SPEED.unwrapKey()
-                .map(key -> key.identifier().toString())
+        String defaultId = MobEffects.MOVEMENT_SPEED.unwrapKey()
+                .map(key -> key.location().toString())
                 .orElse("minecraft:movement_speed");
         return new PotionEffectEntryModel(this, defaultId, 0, 160, false, true, true, this::collectEffect);
     }
 
     private void collectEffect(PotionEffectEntryModel entry) {
-        Identifier rl = Identifier.tryParse(entry.getValue());
+        ResourceLocation rl = ResourceLocation.tryParse(entry.getValue());
         if (rl == null) return;
         var lookupOpt = ClientUtil.registryAccess().lookup(Registries.MOB_EFFECT);
         if (lookupOpt.isEmpty()) return;
@@ -137,7 +134,7 @@ public class ItemSuspiciousStewEffectsCategoryModel extends ItemEditorCategoryMo
     private record EffectData(String id, int duration) {}
 
     private void openEffectSelection() {
-        Set<Identifier> current = collectEffectIds();
+        Set<ResourceLocation> current = collectEffectIds();
         ModScreenHandler.openListSelectionScreen(ModTexts.EFFECTS.copy(),
                 "", ClientCache.getEffectSelectionItems(),
                 value -> {}, true,
@@ -145,11 +142,11 @@ public class ItemSuspiciousStewEffectsCategoryModel extends ItemEditorCategoryMo
                 current);
     }
 
-    private void applySelectedEffects(List<Identifier> selected) {
-        Map<Identifier, PotionEffectEntryModel> existing = new LinkedHashMap<>();
+    private void applySelectedEffects(List<ResourceLocation> selected) {
+        Map<ResourceLocation, PotionEffectEntryModel> existing = new LinkedHashMap<>();
         for (EntryModel entry : getEntries()) {
             if (entry instanceof PotionEffectEntryModel effect) {
-                Identifier id = Identifier.tryParse(effect.getValue());
+                ResourceLocation id = ResourceLocation.tryParse(effect.getValue());
                 if (id != null) {
                     existing.putIfAbsent(id, effect);
                 }
@@ -157,7 +154,7 @@ public class ItemSuspiciousStewEffectsCategoryModel extends ItemEditorCategoryMo
         }
         List<PotionEffectEntryModel> desired = new ArrayList<>();
         if (selected != null) {
-            for (Identifier id : selected) {
+            for (ResourceLocation id : selected) {
                 PotionEffectEntryModel entry = existing.remove(id);
                 if (entry == null) {
                     entry = (PotionEffectEntryModel) createEffectEntry(new EffectData(id.toString(), 160));
@@ -178,11 +175,11 @@ public class ItemSuspiciousStewEffectsCategoryModel extends ItemEditorCategoryMo
         updateEntryListIndexes();
     }
 
-    private Set<Identifier> collectEffectIds() {
-        Set<Identifier> ids = new LinkedHashSet<>();
+    private Set<ResourceLocation> collectEffectIds() {
+        Set<ResourceLocation> ids = new LinkedHashSet<>();
         for (EntryModel entry : getEntries()) {
             if (entry instanceof PotionEffectEntryModel effect) {
-                Identifier id = Identifier.tryParse(effect.getValue());
+                ResourceLocation id = ResourceLocation.tryParse(effect.getValue());
                 if (id != null) {
                     ids.add(id);
                 }

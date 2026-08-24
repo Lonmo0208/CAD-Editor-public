@@ -12,7 +12,7 @@ import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.ResourceKey;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.DyeColor;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.entity.BannerPattern;
@@ -104,21 +104,19 @@ public class ItemBannerPatternCategoryModel extends ItemEditorCategoryModel {
         }
         CompoundTag data = getData();
         if (data != null && data.contains("components")) {
-            CompoundTag components = data.getCompound("components").orElse(null);
-            if (components != null) {
-                components.remove("minecraft:banner_patterns");
-                components.remove("minecraft:base_color");
-                if (components.isEmpty()) {
-                    data.remove("components");
-                }
+            CompoundTag components = data.getCompound("components");
+            components.remove("minecraft:banner_patterns");
+            components.remove("minecraft:base_color");
+            if (components.isEmpty()) {
+                data.remove("components");
             }
         }
     }
 
     private String formatLayer(BannerPatternLayers.Layer layer) {
         String patternId = layer.pattern().unwrapKey()
-                .map(ResourceKey::identifier)
-                .map(Identifier::toString)
+                .map(ResourceKey::location)
+                .map(ResourceLocation::toString)
                 .orElse("");
         return patternId + "|" + layer.color().getName();
     }
@@ -128,7 +126,7 @@ public class ItemBannerPatternCategoryModel extends ItemEditorCategoryModel {
         if (parts.length < 2) {
             return Optional.empty();
         }
-        Identifier patternId = Identifier.tryParse(parts[0].trim());
+        ResourceLocation patternId = ResourceLocation.tryParse(parts[0].trim());
         if (patternId == null || lookup == null) {
             return Optional.empty();
         }

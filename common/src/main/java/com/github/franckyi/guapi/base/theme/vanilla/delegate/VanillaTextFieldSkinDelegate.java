@@ -1,20 +1,17 @@
 package com.github.franckyi.guapi.base.theme.vanilla.delegate;
 
-import com.github.franckyi.guapi.api.RenderHelper;
 import com.github.franckyi.guapi.api.node.TextField;
 import com.github.rinorsi.cadeditor.mixin.EditBoxMixin;
-import net.minecraft.util.Util;
+import net.minecraft.Util;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.EditBox;
-import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.FormattedText;
 import net.minecraft.network.chat.Style;
 import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.util.Mth;
-import net.minecraft.client.renderer.RenderPipelines;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.Objects;
@@ -49,9 +46,6 @@ public class VanillaTextFieldSkinDelegate<N extends TextField> extends EditBox i
         node.highlightPositionProperty().addListener(super::setHighlightPos);
         node.placeholderProperty().addListener(this::updatePlaceholder);
         node.textProperty().addListener(this::updatePlaceholder);
-        addFormatter((string, integer) -> node.getTextRenderer() == null
-                ? FormattedCharSequence.forward(string, Style.EMPTY)
-                : renderText(string, integer).getVisualOrderText());
         moveCursorToStart(false); // fix in order to render text
         updateValidator();
         updateRenderer();
@@ -81,6 +75,11 @@ public class VanillaTextFieldSkinDelegate<N extends TextField> extends EditBox i
     }
 
     private void updateRenderer() {
+        if (node.getTextRenderer() == null) {
+            setFormatter((string, integer) -> FormattedCharSequence.forward(string, Style.EMPTY));
+        } else {
+            setFormatter((string, integer) -> renderText(string, integer).getVisualOrderText());
+        }
         moveCursorToStart(false); // fix in order to render text
     }
 
@@ -130,18 +129,15 @@ public class VanillaTextFieldSkinDelegate<N extends TextField> extends EditBox i
     }
 
     @Override
-    protected void onDrag(MouseButtonEvent event, double deltaX, double deltaY) {
+    protected void onDrag(double mouseX, double mouseY, double deltaX, double deltaY) {
         int displayPos = self.getDisplayPos();
         Font font = Minecraft.getInstance().font;
         FormattedText string = font.substrByWidth(renderText(getValue().substring(displayPos), displayPos), getInnerWidth());
-        setHighlightPos(font.substrByWidth(string, Mth.floor(event.x()) - getX() - 4).getString().length() + displayPos);
+        setHighlightPos(font.substrByWidth(string, Mth.floor(mouseX) - getX() - 4).getString().length() + displayPos);
     }
 
     @Override
-    public boolean mouseClicked(MouseButtonEvent event, boolean isDoubleClick) {
-        double mouseX = event.x();
-        double mouseY = event.y();
-        int button = event.button();
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
         Font font = Minecraft.getInstance().font;
         if (!isVisible()) {
             return false;
@@ -176,7 +172,7 @@ public class VanillaTextFieldSkinDelegate<N extends TextField> extends EditBox i
                 guiGraphics.fill(getX(), getY(), getX() + width, getY() + height, -16777216);
             }
 
-            int textColor = RenderHelper.ensureOpaqueColor(self.isEditable() ? self.getTextColor() : self.getTextColorUneditable());
+            int i2 = self.isEditable() ? self.getTextColor() : self.getTextColorUneditable();
             int j = self.getCursorPos() - self.getDisplayPos();
             int k = self.getHighlightPos() - self.getDisplayPos();
             Component renderedText = renderText(getValue().substring(self.getDisplayPos()), self.getDisplayPos());
@@ -194,9 +190,7 @@ public class VanillaTextFieldSkinDelegate<N extends TextField> extends EditBox i
 
             if (!s.isEmpty()) {
                 String s1 = flag ? s.substring(0, j) : s;
-                FormattedCharSequence formatted = renderText(s1, self.getDisplayPos()).getVisualOrderText();
-                guiGraphics.drawString(font, formatted, l, i1, textColor);
-                j1 = l + font.width(formatted);
+                j1 = guiGraphics.drawString(font, self.getFormatter().apply(s1, self.getDisplayPos()), l, i1, i2);
             }
 
             boolean flag2 = self.getCursorPos() < getValue().length() || getValue().length() >= self.invokeGetMaxLength();
@@ -209,7 +203,7 @@ public class VanillaTextFieldSkinDelegate<N extends TextField> extends EditBox i
             }
 
             if (!s.isEmpty() && flag && j < s.length()) {
-                guiGraphics.drawString(font, renderText(s.substring(j), self.getCursorPos()).getVisualOrderText(), j1, i1, textColor);
+                guiGraphics.drawString(font, self.getFormatter().apply(s.substring(j), self.getCursorPos()), j1, i1, i2);
             }
 
             if (!flag2 && self.getSuggestion() != null) {
@@ -220,7 +214,7 @@ public class VanillaTextFieldSkinDelegate<N extends TextField> extends EditBox i
                 if (flag2) {
                     guiGraphics.fill(k1, i1 - 1, k1 + 1, i1 + 1 + 9, -3092272);
                 } else {
-                    guiGraphics.drawString(font, "_", k1, i1, textColor);
+                    guiGraphics.drawString(font, "_", k1, i1, i2);
                 }
             }
 
@@ -240,17 +234,9 @@ public class VanillaTextFieldSkinDelegate<N extends TextField> extends EditBox i
                 Component highlightedText = renderText(getValue().substring(start, end), start);
                 int highlightedTextWidth = font.width(highlightedText);
                 int x0 = getX() + 4;
-                renderSelection(guiGraphics, x0 + previousTextWidth, i1 - 1, x0 + previousTextWidth + highlightedTextWidth, i1 + 1 + 9);
+                self.invokeRenderHighlight(guiGraphics, x0 + previousTextWidth, i1 - 1, x0 + previousTextWidth + highlightedTextWidth, i1 + 1 + 9);
             }
 
-        }
-    }
-
-    private static void renderSelection(GuiGraphics guiGraphics, int x1, int y1, int x2, int y2) {
-        int minX = Math.min(x1, x2);
-        int maxX = Math.max(x1, x2);
-        if (maxX > minX) {
-            guiGraphics.fill(RenderPipelines.GUI_TEXT_HIGHLIGHT, minX, y1, maxX, y2, -16776961);
         }
     }
 }

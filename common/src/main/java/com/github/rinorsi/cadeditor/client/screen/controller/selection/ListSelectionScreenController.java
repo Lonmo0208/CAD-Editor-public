@@ -10,13 +10,15 @@ import com.github.rinorsi.cadeditor.client.screen.model.selection.element.ListSe
 import com.github.rinorsi.cadeditor.client.screen.model.selection.element.SelectableListSelectionElementModel;
 import com.github.rinorsi.cadeditor.client.screen.view.selection.ListSelectionScreenView;
 import com.github.rinorsi.cadeditor.common.ModTexts;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 public class ListSelectionScreenController extends AbstractController<ListSelectionScreenModel, ListSelectionScreenView> {
@@ -38,7 +40,7 @@ public class ListSelectionScreenController extends AbstractController<ListSelect
         setupFilterButton();
         setupLoadAllButton();
         if (model.isMultiSelect()) {
-            model.getElements().forEach(item -> initializeSelectableItem(item));
+            model.getElements().forEach(this::initializeSelectableItem);
         } else {
             model.getElements().forEach(item -> {
                 if (item.getId().toString().equals(model.getInitialValue())) {
@@ -157,10 +159,15 @@ public class ListSelectionScreenController extends AbstractController<ListSelect
 
     private void initializeSelectableItem(ListSelectionElementModel item) {
         if (item instanceof SelectableListSelectionElementModel selectable) {
-            Identifier id = item.getId();
-            selectable.setSelected(model.getInitiallySelected().contains(id));
+            ResourceLocation id = item.getId();
+            selectable.setSelected(safeInitialSelection().contains(id));
             selectable.selectedProperty().addListener(this::refreshButton);
         }
+    }
+
+    private Set<ResourceLocation> safeInitialSelection() {
+        Set<ResourceLocation> selected = model.getInitiallySelected();
+        return selected == null ? Collections.emptySet() : selected;
     }
 
     private void confirmSingleSelection() {
@@ -180,12 +187,12 @@ public class ListSelectionScreenController extends AbstractController<ListSelect
             if (model.getMultiAction() == null) {
                 return;
             }
-            List<Identifier> selectedIds = model.getElements().stream()
+            List<ResourceLocation> selectedIds = model.getElements().stream()
                     .filter(SelectableListSelectionElementModel.class::isInstance)
                     .map(SelectableListSelectionElementModel.class::cast)
                     .filter(SelectableListSelectionElementModel::isSelected)
                     .map(item -> ((ListSelectionElementModel) item).getId())
-                    .collect(Collectors.toCollection(() -> new ArrayList<Identifier>()));
+                    .collect(Collectors.toCollection(ArrayList::new));
             model.getMultiAction().accept(selectedIds);
         });
     }
@@ -202,5 +209,4 @@ public class ListSelectionScreenController extends AbstractController<ListSelect
             Guapi.getScreenHandler().hideScene();
         }
     }
-
 }

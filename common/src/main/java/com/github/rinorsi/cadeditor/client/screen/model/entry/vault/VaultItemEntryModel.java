@@ -30,7 +30,7 @@ public class VaultItemEntryModel extends EntryModel {
 
     @Override
     public void apply() {
-        CompoundTag tag = ClientUtil.saveItemStack(ClientUtil.registryAccess(), getItemStack());
+        CompoundTag tag = (CompoundTag) getItemStack().save(ClientUtil.registryAccess(), new CompoundTag());
         Vault.getInstance().saveItem(tag);
     }
 

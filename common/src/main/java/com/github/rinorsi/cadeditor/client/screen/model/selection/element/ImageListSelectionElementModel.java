@@ -1,16 +1,16 @@
 package com.github.rinorsi.cadeditor.client.screen.model.selection.element;
 
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 
 public class ImageListSelectionElementModel extends ListSelectionElementModel {
-    private final Identifier textureId;
+    private final ResourceLocation textureId;
 
-    public ImageListSelectionElementModel(String name, Identifier id, Identifier textureId) {
+    public ImageListSelectionElementModel(String name, ResourceLocation id, ResourceLocation textureId) {
         super(name, id);
         this.textureId = textureId;
     }
 
-    public Identifier getTextureId() {
+    public ResourceLocation getTextureId() {
         return textureId;
     }
 

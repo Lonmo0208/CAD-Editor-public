@@ -2,14 +2,14 @@ package com.github.franckyi.guapi.base.node;
 
 import com.github.franckyi.guapi.api.node.ImageView;
 import com.github.franckyi.guapi.api.node.builder.ImageViewBuilder;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 
 public class ImageViewImpl extends AbstractImageView implements ImageViewBuilder {
-    public ImageViewImpl(Identifier textureId) {
+    public ImageViewImpl(ResourceLocation textureId) {
         super(textureId);
     }
 
-    public ImageViewImpl(Identifier textureId, int imageWidth, int imageHeight) {
+    public ImageViewImpl(ResourceLocation textureId, int imageWidth, int imageHeight) {
         super(textureId, imageWidth, imageHeight);
     }
 

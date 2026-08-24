@@ -8,17 +8,15 @@ import com.github.rinorsi.cadeditor.client.screen.model.ItemEditorModel;
 import com.github.rinorsi.cadeditor.client.screen.model.entry.EntryModel;
 import com.github.rinorsi.cadeditor.client.screen.model.entry.item.PotionEffectEntryModel;
 import com.github.rinorsi.cadeditor.client.screen.model.entry.item.PotionSelectionEntryModel;
-import com.github.rinorsi.cadeditor.client.util.NbtHelper;
 import com.github.rinorsi.cadeditor.common.ModTexts;
 import net.minecraft.core.Holder;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.resources.ResourceKey;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.effect.MobEffect;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
@@ -42,8 +40,6 @@ public class ItemPotionEffectsCategoryModel extends ItemEditorCategoryModel {
     private int originalBaseEntryCount;
     private int currentBaseEntryCount;
     private boolean baseEffectsModified;
-    private String selectedPotionId = "";
-    private int selectedCustomColor = Color.NONE;
 
     public ItemPotionEffectsCategoryModel(ItemEditorModel editor) {
         super(ModTexts.POTION_EFFECTS, editor);
@@ -59,7 +55,7 @@ public class ItemPotionEffectsCategoryModel extends ItemEditorCategoryModel {
         originalBaseEntryCount = 0;
         if (contents != null) {
             potionId = contents.potion()
-                    .flatMap(h -> h.unwrapKey().map(k -> java.util.Optional.of(k.identifier().toString())).orElse(java.util.Optional.empty()))
+                    .flatMap(h -> h.unwrapKey().map(k -> java.util.Optional.of(k.location().toString())).orElse(java.util.Optional.empty()))
                     .orElse("");
             customColor = contents.customColor().orElse(Color.NONE);
             originalBaseEffectTags = resolveBasePotionEffects(potionId);
@@ -67,24 +63,19 @@ public class ItemPotionEffectsCategoryModel extends ItemEditorCategoryModel {
             originalBaseEffectTags.forEach(tag -> getEntries().add(createPotionEffectEntry(tag, true)));
             contents.customEffects().forEach(e -> getEntries().add(createPotionEffectEntry(toTag(e), false)));
         } else {
-            CompoundTag data = getData();
-            CompoundTag legacy = data == null ? null : data.getCompound("tag").orElse(null);
-            potionId = NbtHelper.getString(legacy, "Potion", "");
-            customColor = NbtHelper.getInt(legacy, "CustomPotionColor", Color.NONE);
+            potionId = getTag().getString("Potion");
+            customColor = getCustomPotionColor();
             originalBaseEffectTags = resolveBasePotionEffects(potionId);
             originalBaseEntryCount = originalBaseEffectTags.size();
             originalBaseEffectTags.forEach(tag -> getEntries().add(createPotionEffectEntry(tag, true)));
-            ListTag customEffects = legacy == null ? new ListTag() : legacy.getListOrEmpty("custom_potion_effects");
-            customEffects.stream()
+            getTag().getList("custom_potion_effects", Tag.TAG_COMPOUND).stream()
                     .map(CompoundTag.class::cast)
                     .map(t -> createPotionEffectEntry(t, false))
                     .forEach(getEntries()::add);
         }
-        selectedPotionId = potionId;
-        selectedCustomColor = customColor;
         getEntries().add(0, new PotionSelectionEntryModel(this, ModTexts.DEFAULT_POTION,
                 potionId, customColor,
-                this::setPotionId, this::setCustomPotionColor));
+                p -> getOrCreateTag().putString("Potion", p), this::setCustomPotionColor));
     }
 
     @Override
@@ -136,8 +127,8 @@ public class ItemPotionEffectsCategoryModel extends ItemEditorCategoryModel {
         if (effectLookupOpt.isPresent()) {
             var effectLookup = effectLookupOpt.get();
             for (CompoundTag c : effectiveEffects) {
-                String id = NbtHelper.getString(c, "id", "");
-                Identifier rl = Identifier.tryParse(id);
+                String id = c.getString("id");
+                ResourceLocation rl = ResourceLocation.tryParse(id);
                 if (rl == null) {
                     continue;
                 }
@@ -145,18 +136,18 @@ public class ItemPotionEffectsCategoryModel extends ItemEditorCategoryModel {
                 if (holderOpt.isEmpty()) {
                     continue;
                 }
-                int amplifier = c.getIntOr("amplifier", 0);
-                int duration = c.getIntOr("duration", 1);
-                boolean ambient = c.getBooleanOr("ambient", false);
-                boolean showParticles = !c.contains("show_particles") || c.getBooleanOr("show_particles", true);
-                boolean showIcon = c.getBooleanOr("show_icon", false);
+                int amplifier = c.getInt("amplifier");
+                int duration = c.contains("duration", Tag.TAG_INT) ? c.getInt("duration") : 1;
+                boolean ambient = c.getBoolean("ambient");
+                boolean showParticles = !c.contains("show_particles", Tag.TAG_BYTE) || c.getBoolean("show_particles");
+                boolean showIcon = c.contains("show_icon", Tag.TAG_BYTE) && c.getBoolean("show_icon");
                 effects.add(new MobEffectInstance(holderOpt.get(), duration, amplifier, ambient, showParticles, showIcon));
             }
         }
-        String potionStr = selectedPotionId == null ? "" : selectedPotionId;
+        String potionStr = getOrCreateTag().getString("Potion");
         if (baseEffectsModified && !potionStr.isEmpty()) {
             potionStr = "";
-            selectedPotionId = potionStr;
+            getOrCreateTag().putString("Potion", potionStr);
             if (!getEntries().isEmpty() && getEntries().get(0) instanceof PotionSelectionEntryModel selection) {
                 selection.setValue(potionStr);
                 selection.apply();
@@ -166,7 +157,7 @@ public class ItemPotionEffectsCategoryModel extends ItemEditorCategoryModel {
         PotionContents contents = null;
         if (potionLookupOpt.isPresent()) {
             var potionLookup = potionLookupOpt.get();
-            Identifier rl = potionStr.isEmpty() ? Identifier.parse("minecraft:empty") : Identifier.tryParse(potionStr);
+            ResourceLocation rl = potionStr.isEmpty() ? ResourceLocation.parse("minecraft:empty") : ResourceLocation.tryParse(potionStr);
             java.util.Optional<Holder<Potion>> pot = java.util.Optional.empty();
             if (!baseEffectsModified && rl != null) {
                 var potHolder = potionLookup.get(ResourceKey.create(Registries.POTION, rl));
@@ -176,55 +167,46 @@ public class ItemPotionEffectsCategoryModel extends ItemEditorCategoryModel {
             }
             contents = new PotionContents(pot,
                     customColor != Color.NONE ? java.util.Optional.of(customColor) : java.util.Optional.empty(),
-                    effects,
-                    java.util.Optional.empty());
+                    effects);
         }
         if (contents != null) {
             stack.set(DataComponents.POTION_CONTENTS, contents);
         } else {
             stack.remove(DataComponents.POTION_CONTENTS);
         }
-        CompoundTag data = getData();
-        CompoundTag legacy = data == null ? null : data.getCompound("tag").orElse(null);
-        if (legacy != null) {
-            legacy.remove("Potion");
-            legacy.remove("CustomPotionColor");
-            legacy.remove("custom_potion_effects");
-            if (legacy.isEmpty()) {
-                data.remove("tag");
-            }
+        if (getData().contains("tag", Tag.TAG_COMPOUND)) {
+            var tag = getTag();
+            tag.remove("Potion");
+            tag.remove("CustomPotionColor");
+            tag.remove("custom_potion_effects");
         }
     }
 
     private int getCustomPotionColor() {
-        return selectedCustomColor;
+        return getTag().contains("CustomPotionColor", Tag.TAG_INT) ? getTag().getInt("CustomPotionColor") : Color.NONE;
     }
 
     private void setCustomPotionColor(int color) {
-        selectedCustomColor = color;
-    }
-
-    private void setPotionId(String potionId) {
-        selectedPotionId = potionId == null ? "" : potionId.trim();
+        if (color != Color.NONE) {
+            getOrCreateTag().putInt("CustomPotionColor", color);
+        } else {
+            getOrCreateTag().remove("CustomPotionColor");
+        }
     }
 
     private EntryModel createPotionEffectEntry(CompoundTag tag, boolean baseEffect) {
         if (tag != null) {
-            String id = NbtHelper.getString(tag, "id", "");
-            int amplifier = tag.getIntOr("amplifier", tag.getIntOr("Amplifier", 0));
-            int duration = tag.getIntOr("duration", tag.getIntOr("Duration", 1));
-            boolean ambient = tag.getBooleanOr("ambient", tag.getBooleanOr("Ambient", false));
-            boolean showParticles = tag.getBoolean("show_particles")
-                    .or(() -> tag.getBoolean("ShowParticles"))
-                    .orElse(true);
-            boolean showIcon = tag.getBoolean("show_icon")
-                    .or(() -> tag.getBoolean("ShowIcon"))
-                    .orElse(true);
+            String id = tag.getString("id");
+            int amplifier = tag.getInt("amplifier");
+            int duration = tag.contains("duration", Tag.TAG_INT) ? tag.getInt("duration") : 1;
+            boolean ambient = tag.getBoolean("ambient");
+            boolean showParticles = !tag.contains("show_particles", Tag.TAG_BYTE) || tag.getBoolean("show_particles");
+            boolean showIcon = tag.getBoolean("show_icon");
             return new PotionEffectEntryModel(this, id, amplifier, duration, ambient, showParticles, showIcon,
                     this::collectPotionEffect, baseEffect, tag);
         }
-        String defaultId = MobEffects.SPEED.unwrapKey()
-                .map(key -> key.identifier().toString())
+        String defaultId = MobEffects.MOVEMENT_SPEED.unwrapKey()
+                .map(key -> key.location().toString())
                 .orElse("minecraft:movement_speed");
         return new PotionEffectEntryModel(this, defaultId, 0, 1, false, true, true, this::collectPotionEffect);
     }
@@ -250,7 +232,7 @@ public class ItemPotionEffectsCategoryModel extends ItemEditorCategoryModel {
         if (lookupOpt.isEmpty()) {
             return List.of();
         }
-        Identifier rl = Identifier.tryParse(potionId);
+        ResourceLocation rl = ResourceLocation.tryParse(potionId);
         if (rl == null) {
             return List.of();
         }
@@ -277,7 +259,7 @@ public class ItemPotionEffectsCategoryModel extends ItemEditorCategoryModel {
 
     private static CompoundTag toTag(MobEffectInstance e) {
         CompoundTag tag = new CompoundTag();
-        String id = e.getEffect().unwrapKey().map(k -> k.identifier().toString()).orElse("");
+        String id = e.getEffect().unwrapKey().map(k -> k.location().toString()).orElse("");
         tag.putString("id", id);
         tag.putInt("amplifier", e.getAmplifier());
         tag.putInt("duration", e.getDuration());
@@ -288,7 +270,7 @@ public class ItemPotionEffectsCategoryModel extends ItemEditorCategoryModel {
     }
 
     private void openCustomEffectSelection() {
-        Set<Identifier> current = collectCustomEffectIds();
+        Set<ResourceLocation> current = collectCustomEffectIds();
         ModScreenHandler.openListSelectionScreen(ModTexts.EFFECTS.copy(),
                 "", ClientCache.getEffectSelectionItems(),
                 value -> {}, true,
@@ -296,11 +278,11 @@ public class ItemPotionEffectsCategoryModel extends ItemEditorCategoryModel {
                 current);
     }
 
-    private void applyCustomSelection(List<Identifier> selected) {
-        Map<Identifier, PotionEffectEntryModel> existing = new LinkedHashMap<>();
+    private void applyCustomSelection(List<ResourceLocation> selected) {
+        Map<ResourceLocation, PotionEffectEntryModel> existing = new LinkedHashMap<>();
         for (EntryModel entry : getEntries()) {
             if (entry instanceof PotionEffectEntryModel effect && !effect.isBaseEffect()) {
-                Identifier id = Identifier.tryParse(effect.getValue());
+                ResourceLocation id = ResourceLocation.tryParse(effect.getValue());
                 if (id != null) {
                     existing.putIfAbsent(id, effect);
                 }
@@ -308,7 +290,7 @@ public class ItemPotionEffectsCategoryModel extends ItemEditorCategoryModel {
         }
         List<PotionEffectEntryModel> desired = new ArrayList<>();
         if (selected != null) {
-            for (Identifier id : selected) {
+            for (ResourceLocation id : selected) {
                 PotionEffectEntryModel entry = existing.remove(id);
                 if (entry == null) {
                     entry = (PotionEffectEntryModel) createPotionEffectEntry(null, false);
@@ -338,11 +320,11 @@ public class ItemPotionEffectsCategoryModel extends ItemEditorCategoryModel {
         updateEntryListIndexes();
     }
 
-    private Set<Identifier> collectCustomEffectIds() {
-        Set<Identifier> ids = new LinkedHashSet<>();
+    private Set<ResourceLocation> collectCustomEffectIds() {
+        Set<ResourceLocation> ids = new LinkedHashSet<>();
         for (EntryModel entry : getEntries()) {
             if (entry instanceof PotionEffectEntryModel effect && !effect.isBaseEffect()) {
-                Identifier id = Identifier.tryParse(effect.getValue());
+                ResourceLocation id = ResourceLocation.tryParse(effect.getValue());
                 if (id != null) {
                     ids.add(id);
                 }

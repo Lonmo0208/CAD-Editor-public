@@ -3,7 +3,6 @@ package com.github.rinorsi.cadeditor.client.screen.model.category.item;
 import com.github.rinorsi.cadeditor.client.screen.model.ItemEditorModel;
 import com.github.rinorsi.cadeditor.client.screen.model.entry.EntryModel;
 import com.github.rinorsi.cadeditor.client.screen.model.entry.item.ItemContainerSlotEntryModel;
-import com.github.rinorsi.cadeditor.client.util.NbtHelper;
 import com.github.rinorsi.cadeditor.common.ModTexts;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.nbt.CompoundTag;
@@ -77,9 +76,10 @@ public class ItemBundleContentsCategoryModel extends ItemEditorCategoryModel {
 
     private void cleanComponentTag() {
         CompoundTag data = getData();
-        if (data == null) return;
-        CompoundTag components = data.getCompound("components").orElse(null);
-        if (components == null) return;
+        if (data == null || !data.contains("components")) {
+            return;
+        }
+        CompoundTag components = data.getCompound("components");
         components.remove("minecraft:bundle_contents");
         if (components.isEmpty()) {
             data.remove("components");

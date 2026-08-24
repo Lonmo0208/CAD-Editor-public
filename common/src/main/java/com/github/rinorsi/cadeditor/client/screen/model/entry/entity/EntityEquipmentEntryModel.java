@@ -84,8 +84,7 @@ public class EntityEquipmentEntryModel extends EntryModel {
     }
 
     public void setDropChance(float chance) {
-        float safeChance = Float.isFinite(chance) ? chance : slot.defaultDropChance();
-        float clamped = Math.max(0f, Math.min(1f, safeChance));
+        float clamped = Math.max(0f, Math.min(1f, chance));
         dropChanceProperty.setValue(clamped);
         invalidateIfNecessary();
     }
@@ -99,7 +98,8 @@ public class EntityEquipmentEntryModel extends EntryModel {
             return false;
         }
         try {
-            return Float.isFinite(Float.parseFloat(text));
+            Float.parseFloat(text);
+            return true;
         } catch (NumberFormatException ex) {
             return false;
         }
@@ -122,7 +122,7 @@ public class EntityEquipmentEntryModel extends EntryModel {
         if (stack.isEmpty()) {
             return new CompoundTag();
         }
-        return ClientUtil.saveItemStack(ClientUtil.registryAccess(), stack);
+        return (CompoundTag) stack.save(ClientUtil.registryAccess(), new CompoundTag());
     }
 
     public void markAsDefault() {

@@ -12,20 +12,22 @@ import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.resources.ResourceKey;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.item.component.Tool;
 import net.minecraft.world.level.block.Block;
 
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 public class ToolRuleEntryModel extends EntryModel {
-    private final List<Identifier> blockIds = new ArrayList<>();
-    private final List<Identifier> tagIds = new ArrayList<>();
-    private final List<Identifier> defaultBlockIds = new ArrayList<>();
-    private final List<Identifier> defaultTagIds = new ArrayList<>();
+    private final List<ResourceLocation> blockIds = new ArrayList<>();
+    private final List<ResourceLocation> tagIds = new ArrayList<>();
+    private final List<ResourceLocation> defaultBlockIds = new ArrayList<>();
+    private final List<ResourceLocation> defaultTagIds = new ArrayList<>();
     private final ObjectProperty<DropBehavior> behaviorProperty = ObjectProperty.create(DropBehavior.INHERIT);
     private DropBehavior defaultBehavior = DropBehavior.INHERIT;
     private String speedText = "";
@@ -43,7 +45,7 @@ public class ToolRuleEntryModel extends EntryModel {
             rule.blocks().unwrapKey().ifPresent(tagKey -> tagIds.add(tagKey.location()));
             if (tagIds.isEmpty()) {
                 rule.blocks().stream()
-                        .map(holder -> holder.unwrapKey().map(ResourceKey::identifier).orElse(null))
+                        .map(holder -> holder.unwrapKey().map(ResourceKey::location).orElse(null))
                         .filter(id -> id != null)
                         .forEach(blockIds::add);
             }
@@ -56,20 +58,20 @@ public class ToolRuleEntryModel extends EntryModel {
         captureDefaults();
     }
 
-    public List<Identifier> getBlockIds() {
+    public List<ResourceLocation> getBlockIds() {
         return List.copyOf(blockIds);
     }
 
-    public void setBlockIds(List<Identifier> ids) {
+    public void setBlockIds(List<ResourceLocation> ids) {
         blockIds.clear();
         ids.stream().distinct().forEach(blockIds::add);
     }
 
-    public List<Identifier> getTagIds() {
+    public List<ResourceLocation> getTagIds() {
         return List.copyOf(tagIds);
     }
 
-    public void setTagIds(List<Identifier> ids) {
+    public void setTagIds(List<ResourceLocation> ids) {
         tagIds.clear();
         ids.stream().distinct().forEach(tagIds::add);
     }
@@ -103,8 +105,7 @@ public class ToolRuleEntryModel extends EntryModel {
             return true;
         }
         try {
-            float parsed = Float.parseFloat(trimmed);
-            speedValue = parsed;
+            speedValue = Float.parseFloat(trimmed);
             return true;
         } catch (NumberFormatException ex) {
             speedValue = null;
@@ -157,7 +158,7 @@ public class ToolRuleEntryModel extends EntryModel {
         return entries;
     }
 
-    private void addSectionLines(List<Component> tooltip, MutableComponent title, List<Identifier> ids, boolean tags) {
+    private void addSectionLines(List<Component> tooltip, MutableComponent title, List<ResourceLocation> ids, boolean tags) {
         if (ids.isEmpty()) {
             return;
         }
@@ -190,46 +191,51 @@ public class ToolRuleEntryModel extends EntryModel {
                 .append(Component.literal(" ").withStyle(ChatFormatting.DARK_GRAY))
                 .append(behaviorProperty.getValue().getDescription().copy());
     }
+    public Optional<Tool.Rule> toRule(HolderLookup.RegistryLookup<Block> lookup) {
+        Optional<List<Tool.Rule>> rules = toRules(lookup);
+        if (rules.isEmpty() || rules.get().isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.of(rules.get().get(0));
+    }
 
     public Optional<List<Tool.Rule>> toRules(HolderLookup.RegistryLookup<Block> lookup) {
         if (!hasSelection() || lookup == null) {
             return Optional.empty();
         }
-        Optional<Float> speed = Optional.ofNullable(speedValue);
-        Optional<Boolean> behavior = behaviorProperty.getValue().toOptional();
-        List<Tool.Rule> rules = new ArrayList<>();
 
-        for (Identifier tagId : tagIds) {
+        List<Tool.Rule> rules = new ArrayList<>();
+        Optional<Float> speed = Optional.ofNullable(speedValue);
+        Optional<Boolean> drops = behaviorProperty.getValue().toOptional();
+
+        // Keep tag selections as named holder sets so data stays compact and readable.
+        for (ResourceLocation tagId : tagIds) {
             TagKey<Block> tagKey = TagKey.create(Registries.BLOCK, tagId);
             Optional<HolderSet.Named<Block>> named = lookup.get(tagKey);
             if (named.isEmpty()) {
                 return Optional.empty();
             }
-            rules.add(new Tool.Rule(named.get(), speed, behavior));
+            rules.add(new Tool.Rule(named.get(), speed, drops));
         }
 
-        if (!blockIds.isEmpty()) {
-            List<Holder<Block>> holders = new ArrayList<>();
-            for (Identifier blockId : blockIds) {
-                ResourceKey<Block> key = ResourceKey.create(Registries.BLOCK, blockId);
-                Optional<Holder.Reference<Block>> holder = lookup.get(key);
-                if (holder.isEmpty()) {
-                    return Optional.empty();
-                }
-                holders.add(holder.get());
+        Set<Holder<Block>> blockHolders = new LinkedHashSet<>();
+        for (ResourceLocation blockId : blockIds) {
+            ResourceKey<Block> key = ResourceKey.create(Registries.BLOCK, blockId);
+            Optional<Holder.Reference<Block>> holder = lookup.get(key);
+            if (holder.isEmpty()) {
+                return Optional.empty();
             }
-            rules.add(new Tool.Rule(HolderSet.direct(holders), speed, behavior));
+            blockHolders.add(holder.get());
+        }
+        if (!blockHolders.isEmpty()) {
+            HolderSet<Block> blockSet = HolderSet.direct(new ArrayList<>(blockHolders));
+            rules.add(new Tool.Rule(blockSet, speed, drops));
         }
 
-        return rules.isEmpty() ? Optional.empty() : Optional.of(List.copyOf(rules));
-    }
-
-    public Optional<Tool.Rule> toRule(HolderLookup.RegistryLookup<Block> lookup) {
-        Optional<List<Tool.Rule>> rules = toRules(lookup);
-        if (rules.isEmpty() || rules.get().size() != 1) {
+        if (rules.isEmpty()) {
             return Optional.empty();
         }
-        return Optional.of(rules.get().getFirst());
+        return Optional.of(rules);
     }
 
     public void setFromRule(Tool.Rule rule) {
@@ -239,7 +245,7 @@ public class ToolRuleEntryModel extends EntryModel {
             tagIds.add(rule.blocks().unwrapKey().get().location());
         } else {
             rule.blocks().stream()
-                    .map(holder -> holder.unwrapKey().map(ResourceKey::identifier).orElse(null))
+                    .map(holder -> holder.unwrapKey().map(ResourceKey::location).orElse(null))
                     .filter(id -> id != null)
                     .forEach(blockIds::add);
         }

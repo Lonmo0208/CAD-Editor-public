@@ -4,10 +4,10 @@ import com.github.rinorsi.cadeditor.client.screen.model.EntityEditorModel;
 import com.github.rinorsi.cadeditor.client.screen.model.entry.ActionEntryModel;
 import com.github.rinorsi.cadeditor.client.screen.model.entry.BooleanEntryModel;
 import com.github.rinorsi.cadeditor.client.screen.model.entry.StringEntryModel;
-import com.github.rinorsi.cadeditor.client.util.NbtUuidHelper;
 import com.github.rinorsi.cadeditor.common.ModTexts;
 import net.minecraft.client.Minecraft;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.Tag;
 import net.minecraft.world.entity.player.Player;
 
 import java.util.UUID;
@@ -29,9 +29,9 @@ public class EntityTamingCategoryModel extends EntityCategoryModel {
         if (data == null) {
             return;
         }
-        boolean tame = data.getBooleanOr("Tame", false);
-        boolean sitting = data.getBooleanOr("Sitting", false);
-        boolean inSittingPose = data.getBooleanOr("InSittingPose", false);
+        boolean tame = data.getBoolean("Tame");
+        boolean sitting = data.getBoolean("Sitting");
+        boolean inSittingPose = data.getBoolean("InSittingPose");
 
         String ownerName = readOwnerName(data);
         String ownerUuid = readOwnerUuid(data);
@@ -61,34 +61,36 @@ public class EntityTamingCategoryModel extends EntityCategoryModel {
     }
 
     private String readOwnerName(CompoundTag data) {
-        String direct = data.getString("Owner").orElse("");
-        if (!direct.isBlank() && !isUuidString(direct)) {
-            return direct;
+        if (data.contains("Owner", Tag.TAG_STRING)) {
+            String value = data.getString("Owner");
+            if (!isUuidString(value)) {
+                return value;
+            }
         }
-        return data.getString("OwnerName").orElse("");
+        if (data.contains("OwnerName", Tag.TAG_STRING)) {
+            return data.getString("OwnerName");
+        }
+        return "";
     }
 
     private String readOwnerUuid(CompoundTag data) {
-        UUID uuid = NbtUuidHelper.getUuid(data, "OwnerUUID");
-        if (uuid != null) {
-            return uuid.toString();
+        if (data.hasUUID("OwnerUUID")) {
+            return data.getUUID("OwnerUUID").toString();
         }
-        uuid = NbtUuidHelper.getUuid(data, "Owner");
-        if (uuid != null) {
-            return uuid.toString();
+        if (data.hasUUID("Owner")) {
+            return data.getUUID("Owner").toString();
         }
-        if (data.getLong("OwnerUUIDMost").isPresent() && data.getLong("OwnerUUIDLeast").isPresent()) {
-            long most = data.getLongOr("OwnerUUIDMost", 0L);
-            long least = data.getLongOr("OwnerUUIDLeast", 0L);
-            return new UUID(most, least).toString();
+        if (data.contains("OwnerUUIDMost", Tag.TAG_LONG) && data.contains("OwnerUUIDLeast", Tag.TAG_LONG)) {
+            return new UUID(data.getLong("OwnerUUIDMost"), data.getLong("OwnerUUIDLeast")).toString();
         }
-        String ownerUuid = data.getString("OwnerUUID").orElse("");
-        if (!ownerUuid.isBlank()) {
-            return ownerUuid;
+        if (data.contains("OwnerUUID", Tag.TAG_STRING)) {
+            return data.getString("OwnerUUID");
         }
-        String owner = data.getString("Owner").orElse("");
-        if (isUuidString(owner)) {
-            return owner;
+        if (data.contains("Owner", Tag.TAG_STRING)) {
+            String raw = data.getString("Owner");
+            if (isUuidString(raw)) {
+                return raw;
+            }
         }
         return "";
     }
@@ -146,8 +148,7 @@ public class EntityTamingCategoryModel extends EntityCategoryModel {
     private void applyOwnerName(CompoundTag data, String ownerName) {
         if (ownerName.isEmpty()) {
             data.remove("OwnerName");
-            String owner = data.getString("Owner").orElse("");
-            if (!owner.isEmpty() && !isUuidString(owner)) {
+            if (data.contains("Owner", Tag.TAG_STRING) && !isUuidString(data.getString("Owner"))) {
                 data.remove("Owner");
             }
             return;
@@ -163,19 +164,24 @@ public class EntityTamingCategoryModel extends EntityCategoryModel {
         }
         if (isUuidString(ownerUuid)) {
             UUID uuid = UUID.fromString(ownerUuid);
-            NbtUuidHelper.putUuid(data, "OwnerUUID", uuid);
-            NbtUuidHelper.putUuid(data, "Owner", uuid);
+            data.putUUID("OwnerUUID", uuid);
+            data.putUUID("Owner", uuid);
         } else {
             data.putString("OwnerUUID", ownerUuid);
         }
     }
 
     private void removeOwnerUuid(CompoundTag data) {
-        data.remove("OwnerUUID");
-        data.remove("OwnerUUIDMost");
-        data.remove("OwnerUUIDLeast");
-        String owner = data.getString("Owner").orElse("");
-        if (isUuidString(owner) || owner.isBlank()) {
+        if (data.hasUUID("OwnerUUID") || data.contains("OwnerUUID", Tag.TAG_STRING)) {
+            data.remove("OwnerUUID");
+        }
+        if (data.contains("OwnerUUIDMost", Tag.TAG_LONG)) {
+            data.remove("OwnerUUIDMost");
+        }
+        if (data.contains("OwnerUUIDLeast", Tag.TAG_LONG)) {
+            data.remove("OwnerUUIDLeast");
+        }
+        if (data.hasUUID("Owner") || (data.contains("Owner", Tag.TAG_STRING) && isUuidString(data.getString("Owner")))) {
             data.remove("Owner");
         }
     }

@@ -14,7 +14,7 @@ import com.github.rinorsi.cadeditor.client.screen.view.StandardEditorView;
 import com.github.rinorsi.cadeditor.common.EditorType;
 import com.github.rinorsi.cadeditor.common.ModTexts;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 
 import java.util.ArrayList;
@@ -86,11 +86,11 @@ public class StandardEditorController extends CategoryEntryScreenController<Stan
         Map<String, ItemStack> stacksById = new LinkedHashMap<>();
         List<CompoundTag> storedItems = Vault.getInstance().getItems();
         for (int i = 0; i < storedItems.size(); i++) {
-            ItemStack stack = ClientUtil.parseItemStack(ClientUtil.registryAccess(), storedItems.get(i));
+            ItemStack stack = ItemStack.parseOptional(ClientUtil.registryAccess(), storedItems.get(i));
             if (stack.isEmpty()) {
                 continue;
             }
-            Identifier id = Identifier.fromNamespaceAndPath("cadeditor", "editor_vault_item_" + i);
+            ResourceLocation id = ResourceLocation.fromNamespaceAndPath("cadeditor", "editor_vault_item_" + i);
             elements.add(new VaultItemListSelectionElementModel(id, stack));
             stacksById.put(id.toString(), stack.copy());
         }
@@ -115,7 +115,7 @@ public class StandardEditorController extends CategoryEntryScreenController<Stan
             if (tag == null || tag.isEmpty()) {
                 continue;
             }
-            Identifier id = Identifier.fromNamespaceAndPath("cadeditor", "editor_vault_entity_" + i);
+            ResourceLocation id = ResourceLocation.fromNamespaceAndPath("cadeditor", "editor_vault_entity_" + i);
             elements.add(new VaultEntityListSelectionElementModel(id, tag));
             entitiesById.put(id.toString(), tag.copy());
         }

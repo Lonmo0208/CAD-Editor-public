@@ -10,7 +10,6 @@ import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.network.chat.TextColor;
-import net.minecraft.world.item.ItemUseAnimation;
 
 public final class ModTexts {
 
@@ -49,13 +48,6 @@ public final class ModTexts {
     public static final MutableComponent DEBUG_MODE = translated("cadeditor.gui.debug_mode");
     public static final MutableComponent DEFAULT_POTION = translated("cadeditor.gui.default_potion");
     public static final MutableComponent DISPLAY = translated("cadeditor.gui.display");
-    public static final MutableComponent ITEM_FRAME = translated("cadeditor.gui.item_frame");
-    public static final MutableComponent ITEM_FRAME_ITEM = translated("cadeditor.gui.item_frame_item");
-    public static final MutableComponent ITEM_FRAME_DROP_CHANCE = translated("cadeditor.gui.item_frame_drop_chance");
-    public static final MutableComponent ITEM_FRAME_ROTATION = translated("cadeditor.gui.item_frame_rotation");
-    public static final MutableComponent ITEM_FRAME_FIXED = translated("cadeditor.gui.item_frame_fixed");
-    public static final MutableComponent ITEM_FRAME_INVISIBLE = translated("cadeditor.gui.item_frame_invisible");
-    public static final MutableComponent ITEM_FRAME_FACING = translated("cadeditor.gui.item_frame_facing");
     public static final MutableComponent DONE = translated("gui.done").withStyle(ChatFormatting.GREEN);
     public static final MutableComponent DURATION = translated("cadeditor.gui.duration");
     public static final MutableComponent EFFECT = translated("cadeditor.gui.effect");
@@ -182,13 +174,11 @@ public final class ModTexts {
     public static final MutableComponent ZOOM_OUT = translated("cadeditor.gui.zoom_out");
     public static final MutableComponent ZOOM_RESET = translated("cadeditor.gui.zoom_reset");
     public static final MutableComponent SELECTION_SCREEN_MAX_ITEMS = translated("cadeditor.gui.selection_screen_max_items");
-    public static final MutableComponent ATTRIBUTE_TOOLTIP_INFO = translated("cadeditor.gui.attribute_tooltip_info").withStyle(ChatFormatting.GRAY);
     public static final MutableComponent LEVEL = translated("cadeditor.gui.level");
     public static final MutableComponent COMMON = translated("cadeditor.gui.common");
     public static final MutableComponent SNBT_PREVIEW = translated("cadeditor.gui.snbt_preview");
     public static final MutableComponent SNBT_PREVIEW_INVALID = translated("cadeditor.gui.snbt_preview_invalid").withStyle(ChatFormatting.RED);
     public static final MutableComponent SNBT_PREVIEW_TOGGLE = translated("cadeditor.gui.snbt_preview_toggle");
-    public static final MutableComponent EQUIPMENT_ASSET = translated("cadeditor.gui.equipment_asset");
     public static final MutableComponent PERMISSION_LEVEL = translated("cadeditor.gui.permission_level");
     public static final MutableComponent CREATIVE_ONLY = translated("cadeditor.gui.creative_only");
     public static final MutableComponent BLOCK_STATE = translated("cadeditor.gui.block_state");
@@ -285,6 +275,14 @@ public final class ModTexts {
     public static final MutableComponent FIREWORK_ADD_FADE_COLOR = translated("cadeditor.gui.firework_add_fade_color");
     public static final MutableComponent FIREWORK_ADD_EXPLOSION = translated("cadeditor.gui.firework_add_explosion");
     public static final MutableComponent FIREWORK_FLIGHT_DURATION = translated("cadeditor.gui.firework_flight_duration");
+
+    public static final MutableComponent ITEM_FRAME = translated("cadeditor.gui.item_frame");
+    public static final MutableComponent ITEM_FRAME_FACING = translated("cadeditor.gui.item_frame_facing");
+    public static final MutableComponent ITEM_FRAME_FIXED = translated("cadeditor.gui.item_frame_fixed");
+    public static final MutableComponent ITEM_FRAME_INVISIBLE = translated("cadeditor.gui.item_frame_invisible");
+    public static final MutableComponent ITEM_FRAME_ITEM = translated("cadeditor.gui.item_frame_item");
+    public static final MutableComponent ITEM_FRAME_DROP_CHANCE = translated("cadeditor.gui.item_frame_drop_chance");
+    public static final MutableComponent ITEM_FRAME_ROTATION = translated("cadeditor.gui.item_frame_rotation");
     public static MutableComponent errorServerModRequired(MutableComponent with) {
         return translated("cadeditor.message.error_server_mod", with).withStyle(ChatFormatting.RED);
     }
@@ -378,18 +376,6 @@ public final class ModTexts {
         return translated("cadeditor.gui.trade", text(Integer.toString(i)));
     }
 
-    public static MutableComponent useAnimationOption(ItemUseAnimation animation) {
-        return translated("cadeditor.gui.use_animation.option." + animation.getSerializedName());
-    }
-
-    public static MutableComponent equipmentSlot(net.minecraft.world.entity.EquipmentSlot slot) {
-        return translated("cadeditor.gui.equipment_slot." + slot.getName());
-    }
-
-    public static MutableComponent direction(Direction direction) {
-        return translated("cadeditor.gui.direction." + direction.getSerializedName());
-    }
-
     public static MutableComponent gui(String s) {
         return translated("cadeditor.gui." + s);
     }
@@ -422,12 +408,12 @@ public final class ModTexts {
         return arrayTextWithArg("cadeditor.gui.command_copied", 4, arg);
     }
 
-    public static MutableComponent[] wikiTooltip(String key, int lines) {
-        return arrayText("cadeditor.gui.wiki." + key, lines);
-    }
-
     public static MutableComponent give(MutableComponent with) {
         return translated("cadeditor.gui.give", with);
+    }
+
+    public static MutableComponent direction(Direction dir) {
+        return translated("cadeditor.gui.direction." + dir.getSerializedName());
     }
 
     public static MutableComponent soundFilterNamespace(String namespace) {
@@ -521,11 +507,6 @@ public final class ModTexts {
             return prefixed(translated("cadeditor.message.copied_give_clipboard")).withStyle(ChatFormatting.GREEN);
         }
 
-        public static MutableComponent successCopyGiveCommandSanitized(int replacedCount, String replacementValue) {
-            return prefixed(translated("cadeditor.message.copied_give_clipboard_sanitized", replacedCount, replacementValue))
-                    .withStyle(ChatFormatting.YELLOW);
-        }
-
         public static MutableComponent toolRuleHelp() {
             return prefixed(translated("cadeditor.message.tool_rule_help")).withStyle(ChatFormatting.YELLOW);
         }
@@ -540,10 +521,6 @@ public final class ModTexts {
 
         public static MutableComponent containerLootExample() {
             return prefixed(translated("cadeditor.message.container_loot_example")).withStyle(ChatFormatting.YELLOW);
-        }
-
-        public static MutableComponent snbtInvalidCannotApply() {
-            return prefixed(translated("cadeditor.message.snbt_invalid_cannot_apply")).withStyle(ChatFormatting.RED);
         }
 
         public static MutableComponent potDecorationInvalid() {

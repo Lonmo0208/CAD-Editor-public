@@ -62,7 +62,7 @@ public final class ClientConfiguration {
             this.guapiTheme = guapiTheme;
             changed = true;
         }
-        //TODO 主题要继续扩展（排期靠后，未来可期）
+        //TODO themes to be extended further (low priority, future work)
     }
 
     public DebugMode getGuapiDebugMode() {

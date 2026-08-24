@@ -88,16 +88,14 @@ public class ItemMapCategoryModel extends ItemEditorCategoryModel {
         }
 
         CompoundTag data = getData();
-        if (data != null) {
-            CompoundTag components = data.getCompound("components").orElse(null);
-            if (components != null) {
-                components.remove("minecraft:map_id");
-                components.remove("minecraft:map_post_processing");
-                components.remove("minecraft:map_color");
-                components.remove("minecraft:map_decorations");
-                if (components.isEmpty()) {
-                    data.remove("components");
-                }
+        if (data != null && data.contains("components")) {
+            CompoundTag components = data.getCompound("components");
+            components.remove("minecraft:map_id");
+            components.remove("minecraft:map_post_processing");
+            components.remove("minecraft:map_color");
+            components.remove("minecraft:map_decorations");
+            if (components.isEmpty()) {
+                data.remove("components");
             }
         }
     }

@@ -20,7 +20,7 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 
@@ -97,7 +97,7 @@ public class VillagerTradeItemsEntryController extends EntryController<VillagerT
             tooltip.add(ModTexts.choose(ModTexts.ITEM).copy().withStyle(ChatFormatting.GRAY));
             return;
         }
-        Identifier id = BuiltInRegistries.ITEM.getKey(stack.getItem());
+        ResourceLocation id = BuiltInRegistries.ITEM.getKey(stack.getItem());
         tooltip.add(Component.literal(id.toString()).withStyle(ChatFormatting.DARK_GRAY));
         tooltip.add(ModTexts.COUNT.copy().withStyle(ChatFormatting.GRAY)
                 .append(Component.literal(": ").withStyle(ChatFormatting.DARK_GRAY))
@@ -112,11 +112,12 @@ public class VillagerTradeItemsEntryController extends EntryController<VillagerT
                 return;
             }
             try {
-                Identifier id = Identifier.parse(selection);
-                BuiltInRegistries.ITEM.getOptional(id).ifPresent(item -> {
+                ResourceLocation id = ResourceLocation.parse(selection);
+                Item item = BuiltInRegistries.ITEM.get(id);
+                if (item != null) {
                     property.setValue(new ItemStack(item));
                     afterSelection.run();
-                });
+                }
             } catch (Exception ignored) {
             }
         });
@@ -141,11 +142,11 @@ public class VillagerTradeItemsEntryController extends EntryController<VillagerT
         Map<String, ItemStack> stacksById = new LinkedHashMap<>();
         List<net.minecraft.nbt.CompoundTag> storedItems = Vault.getInstance().getItems();
         for (int i = 0; i < storedItems.size(); i++) {
-            ItemStack stack = ClientUtil.parseItemStack(ClientUtil.registryAccess(), storedItems.get(i));
+            ItemStack stack = ItemStack.parseOptional(ClientUtil.registryAccess(), storedItems.get(i));
             if (stack.isEmpty()) {
                 continue;
             }
-            Identifier id = Identifier.fromNamespaceAndPath("cadeditor", "villager_trade_vault_item_" + i);
+            ResourceLocation id = ResourceLocation.fromNamespaceAndPath("cadeditor", "villager_trade_vault_item_" + i);
             elements.add(new VaultItemListSelectionElementModel(id, stack));
             stacksById.put(id.toString(), stack.copy());
         }

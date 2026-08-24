@@ -20,7 +20,7 @@ public class ItemContainerGridCategoryModel extends ItemEditorCategoryModel {
     protected void setupEntries() {
         ItemStack stack = getParent().getContext().getItemStack();
         ItemContainerContents contents = stack.get(DataComponents.CONTAINER);
-        //TODO 这里得补上真正的网格拖拽和批量编辑，现在的体验有些繁琐（实现起来比较麻烦，排期靠后）
+        //TODO Add real grid drag-and-drop and batch editing; current UX is tedious (scheduled later)
         if (contents != null) {
             contents.stream().forEach(item -> getEntries().add(new ItemContainerSlotEntryModel(this, item)));
         }
@@ -31,7 +31,7 @@ public class ItemContainerGridCategoryModel extends ItemEditorCategoryModel {
         return true;
     }
 
-    //TODO 大型容器的性能提示也要补上，要不然玩家一不小心就卡死了
+    //TODO Add a performance warning for large containers so players don't freeze the game
 
     @Override
     public int getEntryListStart() {

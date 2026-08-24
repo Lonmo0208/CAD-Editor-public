@@ -1,7 +1,7 @@
 plugins {
-    id "dev.architectury.loom" version "1.13.467"
+    id "dev.architectury.loom" version "1.10.433"
     id "architectury-plugin"
-    id "com.github.johnrengelman.shadow" version "8.1.1"
+    id "com.gradleup.shadow" version "9.6.1"
 }
 
 tasks.withType(Jar).configureEach {
@@ -106,6 +106,33 @@ afterEvaluate {
     if (!aw.exists()) {
         logger.warn("Warning: accesswidener file missing at " + aw.path + " — run will likely fail with 'Missing accessWidener file' at runtime.")
     }
+}
+
+// ============ Lite server-slim build ============
+// Excludes the client-side animated ItemStackMixin (core logic for rainbow name / Infinite rainbow display),
+// and replaces the mixin config with a slim config that does not include that mixin.
+// The Lite build only loads the basic NBT editor UI when used on a client, with no custom dynamic effects,
+// to prevent unfamiliar admins from stealing custom effects.
+tasks.register('serverOnlyJar', Zip) {
+    dependsOn remapJar
+    archiveClassifier = 'fabric-lite'
+    archiveExtension = 'jar'
+    destinationDirectory = layout.buildDirectory.dir('libs')
+
+    from(zipTree(remapJar.archiveFile)) {
+        exclude 'com/github/rinorsi/cadeditor/mixin/ItemStackMixin*.class'
+        exclude 'cadeditor-common.mixins.json'
+    }
+    from(project(':common').file('src/main/resources/cadeditor-common-serveronly.mixins.json')) {
+        rename { 'cadeditor-common.mixins.json' }
+    }
+
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+
+// The build task also produces the full and Lite variants together
+tasks.named('build') {
+    dependsOn serverOnlyJar
 }
 
 

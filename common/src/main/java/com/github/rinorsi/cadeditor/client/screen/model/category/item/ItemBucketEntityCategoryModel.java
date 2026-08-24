@@ -5,11 +5,10 @@ import com.github.rinorsi.cadeditor.client.screen.model.entry.BooleanEntryModel;
 import com.github.rinorsi.cadeditor.client.screen.model.entry.EnumEntryModel;
 import com.github.rinorsi.cadeditor.client.screen.model.entry.IntegerEntryModel;
 import com.github.rinorsi.cadeditor.client.screen.model.entry.StringEntryModel;
-import com.github.rinorsi.cadeditor.client.util.NbtHelper;
-import com.github.rinorsi.cadeditor.client.util.SnbtHelper;
 import com.github.rinorsi.cadeditor.common.ModTexts;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.TagParser;
 import net.minecraft.world.item.DyeColor;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -42,8 +41,7 @@ public class ItemBucketEntityCategoryModel extends ItemEditorCategoryModel {
         ItemStack stack = getParent().getContext().getItemStack();
         Item item = stack.getItem();
         CustomData data = stack.get(DataComponents.BUCKET_ENTITY_DATA);
-        CompoundTag bucketTag = data != null ? data.copyTag() : null;
-        snbtData = bucketTag != null ? bucketTag.toString() : "";
+        snbtData = data != null ? data.copyTag().toString() : "";
 
         advancedMode = false;
 
@@ -52,15 +50,15 @@ public class ItemBucketEntityCategoryModel extends ItemEditorCategoryModel {
         getEntries().add(advancedToggleEntry);
 
         if (item == Items.AXOLOTL_BUCKET) {
-            if (!advancedMode && bucketTag != null && bucketTag.contains("Variant")) {
-                axolotlVariant = AxolotlVariant.byId(bucketTag.getIntOr("Variant", axolotlVariant.ordinal()));
+            if (!advancedMode && data != null && data.copyTag().contains("Variant")) {
+                axolotlVariant = AxolotlVariant.byId(data.copyTag().getInt("Variant"));
             }
             axolotlEntry = new EnumEntryModel<>(this, ModTexts.BUCKET_AXOLOTL_VARIANT, AxolotlVariant.values(), axolotlVariant,
                     value -> axolotlVariant = value == null ? AxolotlVariant.LEUCISTIC : value);
             getEntries().add(axolotlEntry);
         } else if (item == Items.TROPICAL_FISH_BUCKET) {
-            if (!advancedMode && bucketTag != null && bucketTag.contains("BucketVariantTag")) {
-                int encoded = bucketTag.getIntOr("BucketVariantTag", 0);
+            if (!advancedMode && data != null && data.copyTag().contains("BucketVariantTag")) {
+                int encoded = data.copyTag().getInt("BucketVariantTag");
                 tropicalPattern = TropicalPattern.byId((encoded >> 8) & 0xFF);
                 tropicalBodyColor = DyeColor.byId((encoded >> 4) & 0xF);
                 tropicalPatternColor = DyeColor.byId(encoded & 0xF);
@@ -94,7 +92,7 @@ public class ItemBucketEntityCategoryModel extends ItemEditorCategoryModel {
                 return;
             }
             try {
-                CompoundTag tag = SnbtHelper.parse(snbtData);
+                CompoundTag tag = TagParser.parseTag(snbtData);
                 stack.set(DataComponents.BUCKET_ENTITY_DATA, CustomData.of(tag));
                 snbtEntry.setValid(true);
             } catch (Exception ex) {

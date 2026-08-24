@@ -75,7 +75,8 @@ public class VillagerTradeValuesEntryController extends EntryController<Villager
     private void configureFloatField(TextField field, Consumer<Float> consumer) {
         field.setValidator(text -> {
             try {
-                return Float.isFinite(Float.parseFloat(text));
+                Float.parseFloat(text);
+                return true;
             } catch (NumberFormatException ex) {
                 return false;
             }

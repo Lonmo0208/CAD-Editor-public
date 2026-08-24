@@ -10,7 +10,6 @@ public abstract class EntryModel implements Model {
     private final BooleanProperty validProperty = BooleanProperty.create(true);
     private final IntegerProperty listIndexProperty = IntegerProperty.create(-1);
     private final IntegerProperty listSizeProperty = IntegerProperty.create(-1);
-    private final BooleanProperty reorderableProperty = BooleanProperty.create(true);
 
     protected EntryModel(CategoryModel category) {
         this.category = category;
@@ -60,18 +59,6 @@ public abstract class EntryModel implements Model {
         listSizeProperty().setValue(value);
     }
 
-    public boolean isReorderable() {
-        return reorderableProperty().getValue();
-    }
-
-    public BooleanProperty reorderableProperty() {
-        return reorderableProperty;
-    }
-
-    public void setReorderable(boolean value) {
-        reorderableProperty().setValue(value);
-    }
-
     public abstract void apply();
 
     public boolean isDeletable() {
@@ -84,11 +71,9 @@ public abstract class EntryModel implements Model {
     public abstract Type getType();
 
     public enum Type {
-        INFO,
         STRING, NUMBER, TEXT, ENUM, ACTION, ADD_LIST_ENTRY, BOOLEAN, ITEM, ENTITY,
         ENCHANTMENT, HIDE_FLAG, ATTRIBUTE_MODIFIER, SELECTION, FILTERED_SELECTION, SELECTION_POTION, POTION_EFFECT,
         FOOD_EFFECT, ARMOR_COLOR, FIREWORK_COLOR, VAULT_ITEM, VAULT_ENTITY, ENTITY_EQUIPMENT, CONTAINER_SLOT, TOOL_RULE,
-        MAP_DECORATION, FOOD_USING_CONVERTS_TO, WRITABLE_BOOK_PAGES, VILLAGER_TRADE_ITEMS, VILLAGER_TRADE_VALUES, VILLAGER_TRADE,
-        STRING_WITH_ACTIONS
+        MAP_DECORATION, FOOD_USING_CONVERTS_TO, WRITABLE_BOOK_PAGES, VILLAGER_TRADE_ITEMS, VILLAGER_TRADE_VALUES, VILLAGER_TRADE
     }
 }

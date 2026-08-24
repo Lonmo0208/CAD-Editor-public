@@ -28,8 +28,8 @@ public final class ClientInit {
         syncGuapiConfig();
         UpdateLogRegistry.load();
         Vault.load();
-        //TODO 想在初始化里挂上内置帮助/文档入口，顺便检查缺失翻译（排期靠后）
-        //TODO 预留社区API联动的钩子，皮肤/配方库和分享平台都要连接上（排期靠后）
+        //TODO attach a built-in help/documentation entry in init, and check missing translations (low priority)
+        //TODO reserve hooks for community API integration: skin/recipe libraries and sharing platforms (low priority)
     }
 
     public static void syncGuapiConfig() {

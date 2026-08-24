@@ -3,21 +3,21 @@ package com.github.franckyi.guapi.base.node;
 import com.github.franckyi.databindings.api.IntegerProperty;
 import com.github.franckyi.databindings.api.ObjectProperty;
 import com.github.franckyi.guapi.api.node.ImageView;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 
 @SuppressWarnings("this-escape")
 public abstract class AbstractImageView extends AbstractControl implements ImageView {
-    private final ObjectProperty<Identifier> textureIdProperty = ObjectProperty.create();
+    private final ObjectProperty<ResourceLocation> textureIdProperty = ObjectProperty.create();
     private final IntegerProperty imageXProperty = IntegerProperty.create();
     private final IntegerProperty imageYProperty = IntegerProperty.create();
     private final IntegerProperty imageWidthProperty = IntegerProperty.create();
     private final IntegerProperty imageHeightProperty = IntegerProperty.create();
 
-    public AbstractImageView(Identifier textureId) {
+    public AbstractImageView(ResourceLocation textureId) {
         this(textureId, 0, 0);
     }
 
-    public AbstractImageView(Identifier textureId, int imageWidth, int imageHeight) {
+    public AbstractImageView(ResourceLocation textureId, int imageWidth, int imageHeight) {
         setTextureId(textureId);
         setImageWidth(imageWidth);
         setImageHeight(imageHeight);
@@ -26,7 +26,7 @@ public abstract class AbstractImageView extends AbstractControl implements Image
     }
 
     @Override
-    public ObjectProperty<Identifier> textureIdProperty() {
+    public ObjectProperty<ResourceLocation> textureIdProperty() {
         return textureIdProperty;
     }
 

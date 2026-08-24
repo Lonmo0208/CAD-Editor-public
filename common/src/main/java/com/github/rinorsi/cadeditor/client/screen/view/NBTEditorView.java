@@ -10,7 +10,7 @@ import com.github.rinorsi.cadeditor.client.screen.mvc.NBTTagMVC;
 import com.github.rinorsi.cadeditor.common.ModTexts;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.MutableComponent;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 
 import java.util.function.Consumer;
 
@@ -208,21 +208,21 @@ public class NBTEditorView extends ScreenView {
                 COPY,
                 PASTE
         };
-        private final Identifier textureId;
+        private final ResourceLocation textureId;
         private final byte type;
         private final MutableComponent text;
 
-        ButtonType(Identifier textureId, int type, MutableComponent text) {
+        ButtonType(ResourceLocation textureId, int type, MutableComponent text) {
             this.textureId = textureId;
             this.type = (byte) type;
             this.text = text;
         }
 
-        ButtonType(Identifier textureId, int type) {
+        ButtonType(ResourceLocation textureId, int type) {
             this(textureId, type, null);
         }
 
-        ButtonType(Identifier textureId, MutableComponent text) {
+        ButtonType(ResourceLocation textureId, MutableComponent text) {
             this(textureId, -1, text);
         }
 
@@ -230,7 +230,7 @@ public class NBTEditorView extends ScreenView {
             return type;
         }
 
-        public Identifier getTextureId() {
+        public ResourceLocation getTextureId() {
             return textureId;
         }
 

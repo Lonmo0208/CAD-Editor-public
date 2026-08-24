@@ -1,5 +1,6 @@
 package com.github.rinorsi.cadeditor.common.network;
 
+import com.github.rinorsi.cadeditor.common.EditorType;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.world.item.ItemStack;
@@ -10,7 +11,7 @@ public abstract class ItemEditorPacket {
             @Override
             public void write(ResponseData obj, FriendlyByteBuf buf) {
                 if (buf instanceof RegistryFriendlyByteBuf registryBuf) {
-                    ItemStack.OPTIONAL_STREAM_CODEC.encode(registryBuf, obj.itemStack());
+                    ItemStack.STREAM_CODEC.encode(registryBuf, obj.itemStack());
                 } else {
                     throw new IllegalStateException("Expected registry-friendly buffer for item stack serialization");
                 }
@@ -19,7 +20,7 @@ public abstract class ItemEditorPacket {
             @Override
             public ResponseData read(FriendlyByteBuf buf) {
                 if (buf instanceof RegistryFriendlyByteBuf registryBuf) {
-                    return new ResponseData(ItemStack.OPTIONAL_STREAM_CODEC.decode(registryBuf));
+                    return new ResponseData(ItemStack.STREAM_CODEC.decode(registryBuf));
                 }
                 throw new IllegalStateException("Expected registry-friendly buffer for item stack deserialization");
             }
@@ -43,8 +44,8 @@ public abstract class ItemEditorPacket {
         protected Update() {
         }
 
-        protected Update(REQ requestData, ResponseData responseData) {
-            super(requestData, responseData);
+        protected Update(EditorType editorType, REQ requestData, ResponseData responseData) {
+            super(editorType, requestData, responseData);
         }
 
         public ItemStack getItemStack() {

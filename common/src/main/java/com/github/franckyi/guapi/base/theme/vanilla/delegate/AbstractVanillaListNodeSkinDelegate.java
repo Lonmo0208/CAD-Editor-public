@@ -55,7 +55,7 @@ public abstract class AbstractVanillaListNodeSkinDelegate<N extends ListNode<E>,
     }
 
     @Override
-    protected int scrollBarX() {
+    protected int getScrollbarPosition() {
         return node.getRight() - 6;
     }
 
@@ -65,11 +65,29 @@ public abstract class AbstractVanillaListNodeSkinDelegate<N extends ListNode<E>,
     }
 
     @Override
-    public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent event, boolean isDoubleClick) {
-        if (getEntryAtPosition(event.x(), event.y()) == null && (event.x() < scrollBarX() || event.x() > node.getRight())) {
-            setFocused((GuiEventListener) null);
+    protected void renderSelection(GuiGraphics guiGraphics, int rowTop, int rowWidth, int rowHeight, int borderColor, int fillColor) {
+        renderSelectionAt(guiGraphics, rowTop, rowWidth, rowHeight, borderColor, fillColor);
+    }
+
+    private void renderSelectionAt(GuiGraphics guiGraphics, int rowTop, int rowWidth, int rowHeight, int borderColor, int fillColor) {
+        int left = node.getLeft();
+        int right = node.getRight() - node.getPadding().getRight();
+        if (scrollbarVisible()) {
+            right = Math.min(right, getScrollbarPosition());
         }
-        return super.mouseClicked(event, isDoubleClick);
+        if (right <= left) {
+            right = left + rowWidth;
+        }
+        guiGraphics.fill(left, rowTop - 2, right, rowTop + rowHeight + 2, borderColor);
+        guiGraphics.fill(left + 1, rowTop - 1, right - 1, rowTop + rowHeight + 1, fillColor);
+    }
+
+    @Override
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (getEntryAtPosition(mouseX, mouseY) == null && (mouseX < getScrollbarPosition() || mouseX > node.getRight())) {
+            setFocused(null);
+        }
+        return super.mouseClicked(mouseX, mouseY, button);
     }
 
     @Override
@@ -129,10 +147,12 @@ public abstract class AbstractVanillaListNodeSkinDelegate<N extends ListNode<E>,
     }
 
     protected void refreshSize() {
-        setSize(node.getWidth(), node.getHeight());
-        setPosition(node.getX(), node.getY());
-        // Keep entries positioned with the latest bounds on first frame/open.
-        setScrollAmount(scrollAmount());
+        width = node.getWidth();
+        height = node.getHeight();
+        setX(node.getX());
+        setY(node.getY());
+        // Force row anchors to recompute with the latest bounds on first frame.
+        setScrollAmount(getScrollAmount());
         shouldRefreshSize = false;
     }
 
@@ -149,7 +169,7 @@ public abstract class AbstractVanillaListNodeSkinDelegate<N extends ListNode<E>,
     protected void refreshList() {
         clearEntries();
         createList();
-        setScrollAmount(scrollAmount());
+        setScrollAmount(getScrollAmount());
         shouldRefreshList = false;
     }
 
@@ -267,7 +287,7 @@ public abstract class AbstractVanillaListNodeSkinDelegate<N extends ListNode<E>,
         }
 
         @Override
-        public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent event, boolean isDoubleClick) {
+        public boolean mouseClicked(double mouseX, double mouseY, int button) {
             return list.node.isChildrenFocusable();
         }
     }

@@ -67,7 +67,11 @@ public final class NetworkManager {
     }
 
     public static <P> void sendToClient(ServerPlayer player, NetworkHandler.Client<P> handler, P packet) {
-        LOGGER.debug("Sending {} packet to player {}", handler.getLocation(), player.getName().getString());
-        PlatformUtil.sendToClient(player, handler, packet);
+        try {
+            LOGGER.debug("Sending {} packet to player {}", handler.getLocation(), player.getGameProfile().getName());
+            PlatformUtil.sendToClient(player, handler, packet);
+        } catch (Exception e) {
+            LOGGER.debug("Failed to send {} packet to player {} (client may not have mod)", handler.getLocation(), player.getGameProfile().getName());
+        }
     }
 }

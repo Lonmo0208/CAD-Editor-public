@@ -31,4 +31,9 @@ public final class PlatformUtil {
     public static <P> void registerClientHandler(NetworkHandler.Client<P> handler) {
         throw new AssertionError();
     }
+
+    @ExpectPlatform
+    public static String getModVersion() {
+        throw new AssertionError();
+    }
 }

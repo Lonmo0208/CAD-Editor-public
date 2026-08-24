@@ -9,25 +9,20 @@ import com.github.rinorsi.cadeditor.client.screen.model.entry.EntityEntryModel;
 import com.github.rinorsi.cadeditor.client.screen.model.entry.IntegerEntryModel;
 import com.github.rinorsi.cadeditor.client.screen.model.entry.StringEntryModel;
 import com.github.rinorsi.cadeditor.client.screen.model.entry.entity.EntitySingleItemEntryModel;
-import com.github.rinorsi.cadeditor.client.util.NbtUuidHelper;
 import com.github.rinorsi.cadeditor.common.ModTexts;
 import net.minecraft.client.Minecraft;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.world.entity.EntityType;
-import net.minecraft.world.entity.EquipmentSlot;
-import net.minecraft.world.entity.animal.equine.AbstractHorse;
-import net.minecraft.world.entity.animal.equine.Llama;
+import net.minecraft.world.entity.animal.horse.AbstractHorse;
+import net.minecraft.world.entity.animal.horse.Llama;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 
 import java.util.UUID;
 
 public class EntityMountCategoryModel extends EntityCategoryModel {
-    private static final String EQUIPMENT_TAG = "equipment";
-    private static final String SADDLE_EQUIPMENT_KEY = EquipmentSlot.SADDLE.getSerializedName();
-
     private BooleanEntryModel saddledEntry;
     private EntitySingleItemEntryModel saddleItemEntry;
     private BooleanEntryModel chestedEntry;
@@ -53,15 +48,15 @@ public class EntityMountCategoryModel extends EntityCategoryModel {
         }
         temperEntry = null;
         strengthEntry = null;
+        boolean saddled = data.getBoolean("Saddled") || data.getBoolean("Saddle");
         ItemStack saddleStack = readSaddleItem(data);
-        boolean saddled = !saddleStack.isEmpty() || data.getBooleanOr("Saddled", false) || data.getBooleanOr("Saddle", false);
-        boolean chestedHorse = data.getBooleanOr("ChestedHorse", false);
+        boolean chestedHorse = data.getBoolean("ChestedHorse");
         String leashHolder = readLeashHolder(data);
-        CompoundTag leashTag = data.getCompound("Leash").map(CompoundTag::copy).orElse(null);
+        CompoundTag leashTag = data.contains("Leash", Tag.TAG_COMPOUND) ? data.getCompound("Leash").copy() : null;
         boolean hasLeashAnchor = leashTag != null && (leashTag.contains("X") || leashTag.contains("Y") || leashTag.contains("Z"));
-        double leashX = leashTag != null ? leashTag.getDoubleOr("X", 0d) : 0d;
-        double leashY = leashTag != null ? leashTag.getDoubleOr("Y", 0d) : 0d;
-        double leashZ = leashTag != null ? leashTag.getDoubleOr("Z", 0d) : 0d;
+        double leashX = leashTag != null && leashTag.contains("X") ? leashTag.getDouble("X") : 0d;
+        double leashY = leashTag != null && leashTag.contains("Y") ? leashTag.getDouble("Y") : 0d;
+        double leashZ = leashTag != null && leashTag.contains("Z") ? leashTag.getDouble("Z") : 0d;
 
         saddledEntry = new BooleanEntryModel(this, ModTexts.SADDLED, saddled, value -> {});
         saddleItemEntry = new EntitySingleItemEntryModel(this, ModTexts.SADDLE_ITEM, saddleStack);
@@ -77,13 +72,13 @@ public class EntityMountCategoryModel extends EntityCategoryModel {
         getEntries().add(saddleItemEntry);
 
         if (hasTemper()) {
-            int temper = data.getIntOr("Temper", 0);
+            int temper = data.contains("Temper", Tag.TAG_INT) ? data.getInt("Temper") : 0;
             temperEntry = new IntegerEntryModel(this, ModTexts.MOUNT_TEMPER, temper, value -> {});
             getEntries().add(temperEntry);
         }
 
         if (hasStrength()) {
-            int strength = data.getIntOr("Strength", 1);
+            int strength = data.contains("Strength", Tag.TAG_INT) ? data.getInt("Strength") : 1;
             strengthEntry = new IntegerEntryModel(this, ModTexts.MOUNT_STRENGTH, strength, value -> {});
             getEntries().add(strengthEntry);
         }
@@ -96,11 +91,12 @@ public class EntityMountCategoryModel extends EntityCategoryModel {
         getEntries().add(leashZEntry);
 
         passengerListStart = getEntries().size();
-        ListTag passengers = data.getList("Passengers").orElseGet(ListTag::new);
+        ListTag passengers = data.getList("Passengers", Tag.TAG_COMPOUND);
         for (Tag tag : passengers) {
-            if (tag instanceof CompoundTag passengerTag) {
-                getEntries().add(createPassengerEntry(passengerTag));
+            if (!(tag instanceof CompoundTag passengerTag)) {
+                continue;
             }
+            getEntries().add(createPassengerEntry(passengerTag));
         }
     }
 
@@ -113,34 +109,32 @@ public class EntityMountCategoryModel extends EntityCategoryModel {
 
     private EntityEntryModel createPassengerEntry(CompoundTag passengerTag) {
         EntityType<?> type = null;
-        String id = passengerTag.getString("id").orElse("");
+        String id = passengerTag.getString("id");
         if (!id.isEmpty()) {
             type = EntityType.byString(id).orElse(null);
         }
-        EntityEntryModel model = new EntityEntryModel(this, type, passengerTag, value -> {});
-        model.setReorderable(false);
-        return model;
+        return new EntityEntryModel(this, type, passengerTag, value -> {});
     }
 
     private ItemStack readSaddleItem(CompoundTag data) {
-        ItemStack fromEquipment = data.getCompound(EQUIPMENT_TAG)
-                .flatMap(equipment -> equipment.getCompound(SADDLE_EQUIPMENT_KEY))
-                .map(tag -> ClientUtil.parseItemStack(ClientUtil.registryAccess(), tag))
-                .orElse(ItemStack.EMPTY);
-        if (!fromEquipment.isEmpty()) {
-            return fromEquipment;
+        if (data.contains("SaddleItem", Tag.TAG_COMPOUND)) {
+            CompoundTag saddleTag = data.getCompound("SaddleItem");
+            return ItemStack.parseOptional(ClientUtil.registryAccess(), saddleTag);
         }
-        return data.getCompound("SaddleItem")
-                .map(tag -> ClientUtil.parseItemStack(ClientUtil.registryAccess(), tag))
-                .orElse(ItemStack.EMPTY);
+        return ItemStack.EMPTY;
     }
 
     private String readLeashHolder(CompoundTag data) {
-        UUID uuid = NbtUuidHelper.getUuid(data, "LeashHolder");
-        if (uuid != null) {
-            return uuid.toString();
+        if (data.hasUUID("LeashHolder")) {
+            return data.getUUID("LeashHolder").toString();
         }
-        return data.getString("LeashHolder").orElse("");
+        if (data.contains("LeashHolder", Tag.TAG_STRING)) {
+            String value = data.getString("LeashHolder");
+            if (!value.isBlank()) {
+                return value;
+            }
+        }
+        return "";
     }
 
     @Override
@@ -181,22 +175,17 @@ public class EntityMountCategoryModel extends EntityCategoryModel {
         boolean saddled = Boolean.TRUE.equals(saddledEntry.getValue());
         ItemStack saddleStack = saddleItemEntry.getItemStack();
 
-        CompoundTag equipmentTag = data.getCompound(EQUIPMENT_TAG).orElseGet(CompoundTag::new);
+        if (saddled && saddleStack.isEmpty()) {
+            saddleStack = new ItemStack(Items.SADDLE);
+            saddleItemEntry.setItemStack(saddleStack.copy());
+        }
+
         if (saddled) {
-            if (saddleStack.isEmpty()) {
-                saddleStack = new ItemStack(Items.SADDLE);
-                saddleItemEntry.setItemStack(saddleStack.copy());
-            }
-            CompoundTag saddleTag = ClientUtil.saveItemStack(ClientUtil.registryAccess(), saddleStack);
-            equipmentTag.put(SADDLE_EQUIPMENT_KEY, saddleTag);
-            data.put(EQUIPMENT_TAG, equipmentTag);
+            data.putBoolean("Saddle", true);
+            data.putBoolean("Saddled", true);
+            CompoundTag saddleTag = (CompoundTag) saddleStack.save(ClientUtil.registryAccess(), new CompoundTag());
+            data.put("SaddleItem", saddleTag);
         } else {
-            equipmentTag.remove(SADDLE_EQUIPMENT_KEY);
-            if (equipmentTag.isEmpty()) {
-                data.remove(EQUIPMENT_TAG);
-            } else {
-                data.put(EQUIPMENT_TAG, equipmentTag);
-            }
             data.remove("Saddle");
             data.remove("Saddled");
             data.remove("SaddleItem");
@@ -204,12 +193,7 @@ public class EntityMountCategoryModel extends EntityCategoryModel {
                 saddleItemEntry.setItemStack(ItemStack.EMPTY);
             }
         }
-        // Legacy cleanup to avoid duplicated state
-        data.remove("Saddle");
-        data.remove("Saddled");
-        data.remove("SaddleItem");
     }
-
     private void applyMountStats(CompoundTag data) {
         if (temperEntry != null) {
             Integer value = temperEntry.getValue();
@@ -242,7 +226,7 @@ public class EntityMountCategoryModel extends EntityCategoryModel {
         if (leashHolder.isEmpty()) {
             data.remove("LeashHolder");
         } else if (isUuidString(leashHolder)) {
-            NbtUuidHelper.putUuid(data, "LeashHolder", UUID.fromString(leashHolder));
+            data.putUUID("LeashHolder", UUID.fromString(leashHolder));
         } else {
             data.putString("LeashHolder", leashHolder);
         }
@@ -252,7 +236,7 @@ public class EntityMountCategoryModel extends EntityCategoryModel {
             data.remove("Leash");
             return;
         }
-        CompoundTag leash = data.getCompound("Leash").orElseGet(CompoundTag::new);
+        CompoundTag leash = data.contains("Leash", Tag.TAG_COMPOUND) ? data.getCompound("Leash") : new CompoundTag();
         leash.putDouble("X", leashXEntry.getValue());
         leash.putDouble("Y", leashYEntry.getValue());
         leash.putDouble("Z", leashZEntry.getValue());
@@ -303,7 +287,7 @@ public class EntityMountCategoryModel extends EntityCategoryModel {
             return true;
         }
         CompoundTag data = getData();
-        return data != null && data.getInt("Temper").isPresent();
+        return data != null && data.contains("Temper", Tag.TAG_INT);
     }
 
     private boolean hasStrength() {
@@ -311,7 +295,7 @@ public class EntityMountCategoryModel extends EntityCategoryModel {
             return true;
         }
         CompoundTag data = getData();
-        return data != null && data.getInt("Strength").isPresent();
+        return data != null && data.contains("Strength", Tag.TAG_INT);
     }
 
     private int clamp(int value, int min, int max) {

@@ -2,14 +2,14 @@ package com.github.rinorsi.cadeditor.client.screen.controller;
 
 import com.github.franckyi.guapi.api.Guapi;
 import com.github.franckyi.guapi.api.mvc.AbstractController;
-import com.github.rinorsi.cadeditor.client.ClientUtil;
 import com.github.rinorsi.cadeditor.client.screen.model.SNBTEditorModel;
 import com.github.rinorsi.cadeditor.client.screen.view.SNBTEditorView;
-import com.github.rinorsi.cadeditor.client.util.SnbtHelper;
+import com.github.rinorsi.cadeditor.client.screen.widget.SyntaxHighlightingTextArea;
+import com.github.rinorsi.cadeditor.client.util.texteditor.SNBTSyntaxHighlighter;
 import com.github.rinorsi.cadeditor.common.EditorType;
-import com.github.rinorsi.cadeditor.common.ModTexts;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import net.minecraft.nbt.SnbtPrinterTagVisitor;
+import net.minecraft.nbt.TagParser;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -27,12 +27,13 @@ public class SNBTEditorController extends AbstractController<SNBTEditorModel, SN
     @Override
     public void bind() {
         EditorController.super.bind();
-        view.addOpenEditorButton(() -> attemptEditorChange(EditorType.STANDARD));
-        view.addOpenNBTEditorButton(() -> attemptEditorChange(EditorType.NBT));
+        view.addOpenEditorButton(() -> model.changeEditor(EditorType.STANDARD));
+        view.addOpenNBTEditorButton(() -> model.changeEditor(EditorType.NBT));
         view.getTextArea().textProperty().bindBidirectional(model.valueProperty());
+        ((SyntaxHighlightingTextArea) view.getTextArea()).errorCursorProperty().bind(model.errorCursorProperty());
         view.getTextArea().setValidator(s -> {
             try {
-                return SnbtHelper.parse(s) != null;
+                return TagParser.parseTag(s) != null;
             } catch (CommandSyntaxException e) {
                 return false;
             }
@@ -49,35 +50,16 @@ public class SNBTEditorController extends AbstractController<SNBTEditorModel, SN
         });
         view.getFormatButton().disableProperty().bind(view.getTextArea().validProperty().not());
         view.getFormatButton().onAction(this::format);
-        view.getDoneButton().onAction(() -> {
-            if (ensureValidInput()) {
-                model.update();
-            }
-        });
+        view.getDoneButton().onAction(model::update);
         view.getCancelButton().onAction(Guapi.getScreenHandler()::hideScene);
     }
 
     private void format() {
         SnbtPrinterTagVisitor formatter = new SnbtPrinterTagVisitor("  ", 0, new ArrayList<>());
         try {
-            model.setValue(formatter.visit(SnbtHelper.parse(view.getTextArea().getText())));
+            model.setValue(formatter.visit(TagParser.parseTag(view.getTextArea().getText())));
         } catch (CommandSyntaxException e) {
-            LOGGER.error("�޷����� NBT ��ǩ", e);
-        }
-    }
-
-    private boolean ensureValidInput() {
-        if (model.validProperty().getValue()) {
-            return true;
-        }
-        view.getTextArea().setValidationForced(true);
-        ClientUtil.showMessage(ModTexts.Messages.snbtInvalidCannotApply());
-        return false;
-    }
-
-    private void attemptEditorChange(EditorType target) {
-        if (ensureValidInput()) {
-            model.changeEditor(target);
+            LOGGER.error("无法解析 NBT 标签", e);
         }
     }
 }

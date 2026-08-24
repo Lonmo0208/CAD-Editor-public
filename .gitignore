@@ -22,9 +22,12 @@ run/
 
 .architectury-transformer/
 .github/
-common/logs
+
 文档/
 反编译/
 decompiled/
-错误日志/
-versions/
+common/logs
+
+# debug / decompile artifacts
+itemstack.javap
+cfr.jar

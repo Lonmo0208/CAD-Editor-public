@@ -1,20 +1,14 @@
 package com.github.rinorsi.cadeditor.client;
 
 import com.github.rinorsi.cadeditor.common.CommonUtil;
-import com.mojang.serialization.DataResult;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.NbtOps;
-import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.RegistryOps;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
 
 public final class ClientUtil {
     public static void showMessage(Component component) {
@@ -58,49 +52,13 @@ public final class ClientUtil {
         return RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY);
     }
 
-    public static ItemStack parseItemStack(CompoundTag tag) {
-        return parseItemStack(registryAccess(), tag);
-    }
-
-    public static ItemStack parseItemStack(HolderLookup.Provider lookup, CompoundTag tag) {
-        if (tag == null) {
-            return ItemStack.EMPTY;
-        }
-        RegistryOps<Tag> ops = RegistryOps.create(NbtOps.INSTANCE, lookup);
-        return ItemStack.OPTIONAL_CODEC.parse(ops, tag).result().orElse(ItemStack.EMPTY);
-    }
-
-    public static CompoundTag saveItemStack(ItemStack stack) {
-        return saveItemStack(registryAccess(), stack);
-    }
-
-    public static CompoundTag saveItemStack(HolderLookup.Provider lookup, ItemStack stack) {
-        if (stack == null || stack.isEmpty()) {
-            CompoundTag tag = new CompoundTag();
-            tag.putString("id", BuiltInRegistries.ITEM.getKey((stack == null ? Items.AIR : stack.getItem())).toString());
-            tag.putByte("Count", (byte) (stack == null ? 0 : stack.getCount()));
-            return tag;
-        }
-        RegistryOps<Tag> ops = RegistryOps.create(NbtOps.INSTANCE, lookup);
-        return ItemStack.OPTIONAL_CODEC.encodeStart(ops, stack)
-                .result()
-                .filter(result -> result instanceof CompoundTag)
-                .map(result -> (CompoundTag) result)
-                .orElseGet(() -> {
-                    CompoundTag tag = new CompoundTag();
-                    tag.putString("id", BuiltInRegistries.ITEM.getKey(stack.getItem()).toString());
-                    tag.putByte("Count", (byte) stack.getCount());
-                    return tag;
-                });
-    }
-
-    public static Identifier parseResourceLocation(String value) {
+    public static ResourceLocation parseResourceLocation(String value) {
         if (value == null || value.isEmpty()) {
             return null;
         }
-        Identifier location = Identifier.tryParse(value);
+        ResourceLocation location = ResourceLocation.tryParse(value);
         if (location == null && !value.contains(":")) {
-            location = Identifier.tryParse("minecraft:" + value);
+            location = ResourceLocation.tryParse("minecraft:" + value);
         }
         return location;
     }

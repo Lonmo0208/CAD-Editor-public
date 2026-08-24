@@ -3,11 +3,12 @@ package com.github.rinorsi.cadeditor.client.screen.model.category.item;
 import com.github.rinorsi.cadeditor.client.screen.model.ItemEditorModel;
 import com.github.rinorsi.cadeditor.client.screen.model.entry.EntryModel;
 import com.github.rinorsi.cadeditor.client.screen.model.entry.item.WritableBookPagesEntryModel;
-import com.github.rinorsi.cadeditor.client.util.NbtHelper;
 import com.github.rinorsi.cadeditor.common.ModTexts;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.StringTag;
+import net.minecraft.nbt.Tag;
 import net.minecraft.server.network.Filterable;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.component.WritableBookContent;
@@ -65,7 +66,7 @@ public class ItemWritableBookPagesCategoryModel extends ItemEditorCategoryModel 
             stack.set(DataComponents.WRITABLE_BOOK_CONTENT, new WritableBookContent(filterables));
         }
 
-        clearLegacyPages();
+        writeLegacyPages(pages);
     }
 
     private List<String> readPages() {
@@ -82,19 +83,16 @@ public class ItemWritableBookPagesCategoryModel extends ItemEditorCategoryModel 
             return result;
         }
         CompoundTag data = getData();
-        if (data == null) {
+        if (data == null || !data.contains("tag", Tag.TAG_COMPOUND)) {
             return result;
         }
-        CompoundTag tag = data.getCompound("tag").orElse(null);
-        if (tag == null) {
+        CompoundTag tag = data.getCompound("tag");
+        if (!tag.contains("pages", Tag.TAG_LIST)) {
             return result;
         }
-        ListTag list = tag.getList("pages").orElse(null);
-        if (list == null) {
-            return result;
-        }
+        ListTag list = tag.getList("pages", Tag.TAG_STRING);
         for (int i = 0; i < list.size() && result.size() < WritableBookContent.MAX_PAGES; i++) {
-            result.add(sanitizePage(list.getString(i).orElse("")));
+            result.add(sanitizePage(list.getString(i)));
         }
         return result;
     }
@@ -108,19 +106,33 @@ public class ItemWritableBookPagesCategoryModel extends ItemEditorCategoryModel 
         stagedPages = List.copyOf(sanitized);
     }
 
-    private void clearLegacyPages() {
+    private void writeLegacyPages(List<String> pages) {
         CompoundTag data = getData();
         if (data == null) {
             return;
         }
-        CompoundTag tag = data.getCompound("tag").orElse(null);
-        if (tag == null) {
+        if (pages.isEmpty()) {
+            if (data.contains("tag", Tag.TAG_COMPOUND)) {
+                CompoundTag tag = data.getCompound("tag");
+                tag.remove("pages");
+                if (tag.isEmpty()) {
+                    data.remove("tag");
+                }
+            }
             return;
         }
-        tag.remove("pages");
-        if (tag.isEmpty()) {
-            data.remove("tag");
+
+        if (!data.contains("tag", Tag.TAG_COMPOUND)) {
+            data.put("tag", new CompoundTag());
         }
+        CompoundTag tag = data.getCompound("tag");
+        ListTag list = new ListTag();
+        pages.stream()
+                .limit(WritableBookContent.MAX_PAGES)
+                .map(this::sanitizePage)
+                .map(StringTag::valueOf)
+                .forEach(list::add);
+        tag.put("pages", list);
     }
 
     private String sanitizePage(String text) {

@@ -4,10 +4,8 @@ import com.github.rinorsi.cadeditor.client.ClientUtil;
 import com.github.rinorsi.cadeditor.client.screen.model.ItemEditorModel;
 import com.github.rinorsi.cadeditor.client.screen.model.entry.BlockSelectionEntryModel;
 import com.github.rinorsi.cadeditor.client.screen.model.entry.EntryModel;
-import com.github.rinorsi.cadeditor.client.util.NbtHelper;
 import com.github.rinorsi.cadeditor.common.ModTexts;
-import net.minecraft.advancements.criterion.BlockPredicate;
-import net.minecraft.advancements.criterion.DataComponentMatchers;
+import net.minecraft.advancements.critereon.BlockPredicate;
 import net.minecraft.core.HolderSet;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.core.component.DataComponents;
@@ -18,8 +16,7 @@ import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.resources.ResourceKey;
-import net.minecraft.resources.Identifier;
-import net.minecraft.tags.TagKey;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.AdventureModePredicate;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Block;
@@ -39,34 +36,32 @@ public class ItemBlockListCategoryModel extends ItemEditorCategoryModel {
 
     @Override
     protected void setupEntries() {
-        // 1) Prefer 1.21 components
+        // 1) Try legacy NBT list
+        var nbtList = getTag().getList(tagName, Tag.TAG_STRING);
+        if (!nbtList.isEmpty()) {
+            nbtList.stream()
+                    .map(Tag::getAsString)
+                    .map(this::createBlockEntry)
+                    .forEach(getEntries()::add);
+            return;
+        }
+        // 2) Fallback to 1.21 components stored under "components"
         var data = getData();
-        if (data != null) {
-            var components = data.getCompound("components").orElse(null);
+        if (data.contains("components", Tag.TAG_COMPOUND)) {
+            var components = data.getCompound("components");
             String key = "CanDestroy".equals(tagName) ? "minecraft:can_break" : "minecraft:can_place_on";
-            if (components != null) {
-                var comp = components.getCompound(key).orElse(null);
-                if (comp != null) {
-                    var preds = comp.getList("predicates").orElse(null);
-                    if (preds != null) {
-                        for (Tag predicateTag : preds) {
-                            if (predicateTag instanceof CompoundTag predicate && predicate.contains("blocks")) {
+            if (components.contains(key, Tag.TAG_COMPOUND)) {
+                var comp = components.getCompound(key);
+                if (comp.contains("predicates", Tag.TAG_LIST)) {
+                    var preds = comp.getList("predicates", Tag.TAG_COMPOUND);
+                    for (Tag predicateTag : preds) {
+                        if (predicateTag instanceof CompoundTag predicate) {
+                            if (predicate.contains("blocks")) {
                                 readComponentBlocks(predicate.get("blocks"));
                             }
                         }
                     }
                 }
-            }
-        }
-        if (!getEntries().isEmpty()) {
-            return;
-        }
-        // 2) Fallback to legacy lists
-        CompoundTag legacyTag = data == null ? null : data.getCompound("tag").orElse(null);
-        ListTag nbtList = NbtHelper.getListOrEmpty(legacyTag, tagName);
-        for (Tag element : nbtList) {
-            if (element instanceof StringTag stringTag) {
-                getEntries().add(createBlockEntry(stringTag.value()));
             }
         }
     }
@@ -94,6 +89,13 @@ public class ItemBlockListCategoryModel extends ItemEditorCategoryModel {
     public void apply() {
         newBlocks = new ListTag();
         super.apply();
+        // 1) Keep legacy NBT for UI compatibility
+        if (!newBlocks.isEmpty()) {
+            getOrCreateTag().put(tagName, newBlocks);
+        } else if (getOrCreateTag().contains(tagName)) {
+            getOrCreateTag().remove(tagName);
+        }
+        // 2) Apply 1.21 Data Components to the actual stack
         ItemStack stack = getParent().getContext().getItemStack();
         List<BlockPredicate> predicates = new ArrayList<>();
         var lookupOpt = ClientUtil.registryAccess().lookup(Registries.BLOCK);
@@ -101,45 +103,21 @@ public class ItemBlockListCategoryModel extends ItemEditorCategoryModel {
             var lookup = lookupOpt.get();
             for (Tag t : newBlocks) {
                 if (t instanceof StringTag s) {
-                    String selector = s.value().trim();
-                    if (selector.isEmpty()) {
-                        continue;
+                    ResourceLocation rl = ResourceLocation.tryParse(s.getAsString());
+                    if (rl != null) {
+                        ResourceKey<Block> key = ResourceKey.create(Registries.BLOCK, rl);
+                        var holder = lookup.get(key);
+                        holder.ifPresent(h -> predicates.add(new BlockPredicate(Optional.of(HolderSet.direct(h)), Optional.empty(), Optional.empty())));
                     }
-                    if (selector.startsWith("#")) {
-                        Identifier tagId = Identifier.tryParse(selector.substring(1));
-                        if (tagId == null) {
-                            continue;
-                        }
-                        TagKey<Block> tagKey = TagKey.create(Registries.BLOCK, tagId);
-                        lookup.get(tagKey).ifPresent(holders -> predicates.add(new BlockPredicate(Optional.of(holders), Optional.empty(), Optional.empty(), DataComponentMatchers.ANY)));
-                        continue;
-                    }
-                    Identifier rl = Identifier.tryParse(selector);
-                    if (rl == null) {
-                        continue;
-                    }
-                    ResourceKey<Block> key = ResourceKey.create(Registries.BLOCK, rl);
-                    lookup.get(key).ifPresent(h -> predicates.add(new BlockPredicate(Optional.of(HolderSet.direct(h)), Optional.empty(), Optional.empty(), DataComponentMatchers.ANY)));
                 }
             }
         }
-        AdventureModePredicate predicate = predicates.isEmpty() ? null : new AdventureModePredicate(predicates);
+        AdventureModePredicate predicate = predicates.isEmpty() ? null : new AdventureModePredicate(predicates, true);
         boolean isDestroy = "CanDestroy".equals(tagName);
         if (predicate != null) {
             if (isDestroy) stack.set(DataComponents.CAN_BREAK, predicate); else stack.set(DataComponents.CAN_PLACE_ON, predicate);
         } else {
             if (isDestroy) stack.remove(DataComponents.CAN_BREAK); else stack.remove(DataComponents.CAN_PLACE_ON);
-        }
-
-        CompoundTag data = getData();
-        if (data != null) {
-            CompoundTag legacyTag = data.getCompound("tag").orElse(null);
-            if (legacyTag != null && legacyTag.contains(tagName)) {
-                legacyTag.remove(tagName);
-                if (legacyTag.isEmpty()) {
-                    data.remove("tag");
-                }
-            }
         }
     }
 
@@ -158,7 +136,7 @@ public class ItemBlockListCategoryModel extends ItemEditorCategoryModel {
             return;
         }
         if (blocksTag instanceof StringTag stringTag) {
-            addComponentBlock(stringTag.value());
+            addComponentBlock(stringTag.getAsString());
             return;
         }
         if (blocksTag instanceof ListTag listTag) {
@@ -168,11 +146,11 @@ public class ItemBlockListCategoryModel extends ItemEditorCategoryModel {
             return;
         }
         if (blocksTag instanceof CompoundTag compoundTag) {
-            if (compoundTag.contains("id")) {
-                addComponentBlock(NbtHelper.getString(compoundTag, "id", ""));
+            if (compoundTag.contains("id", Tag.TAG_STRING)) {
+                addComponentBlock(compoundTag.getString("id"));
             }
-            if (compoundTag.contains("tag")) {
-                addComponentBlock("#" + NbtHelper.getString(compoundTag, "tag", ""));
+            if (compoundTag.contains("tag", Tag.TAG_STRING)) {
+                addComponentBlock("#" + compoundTag.getString("tag"));
             }
             if (compoundTag.contains("blocks")) {
                 readComponentBlocks(compoundTag.get("blocks"));

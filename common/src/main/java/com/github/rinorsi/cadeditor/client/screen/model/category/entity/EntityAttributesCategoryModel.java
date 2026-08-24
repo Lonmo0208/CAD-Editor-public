@@ -12,7 +12,7 @@ import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.Attribute;
 import net.minecraft.world.entity.ai.attributes.AttributeInstance;
@@ -31,7 +31,7 @@ public class EntityAttributesCategoryModel extends EntityCategoryModel {
     private static final String BASE_TAG = "base";
     private static final String LEGACY_BASE_TAG = "Base";
 
-    private final Map<Identifier, AttributeState> attributeStates = new LinkedHashMap<>();
+    private final Map<ResourceLocation, AttributeState> attributeStates = new LinkedHashMap<>();
 
     public EntityAttributesCategoryModel(EntityEditorModel editor) {
         super(ModTexts.ENTITY_ATTRIBUTES, editor);
@@ -44,7 +44,7 @@ public class EntityAttributesCategoryModel extends EntityCategoryModel {
             return;
         }
 
-        Map<Identifier, CompoundTag> existing = readExistingAttributes(data);
+        Map<ResourceLocation, CompoundTag> existing = readExistingAttributes(data);
         HolderLookup.Provider registries = ClientUtil.registryAccess();
         if (registries == null) {
             existing.forEach((id, tag) -> {
@@ -99,9 +99,9 @@ public class EntityAttributesCategoryModel extends EntityCategoryModel {
         }
     }
 
-    private void addAttributeEntry(Holder.Reference<Attribute> holder, LivingEntity living, Map<Identifier, CompoundTag> existing) {
+    private void addAttributeEntry(Holder.Reference<Attribute> holder, LivingEntity living, Map<ResourceLocation, CompoundTag> existing) {
         AttributeInstance instance = living.getAttribute(holder);
-        Identifier id = holder.key().identifier();
+        ResourceLocation id = holder.key().location();
         CompoundTag backing = existing.remove(id);
         if (instance == null && backing == null) {
             return;
@@ -114,31 +114,28 @@ public class EntityAttributesCategoryModel extends EntityCategoryModel {
         getEntries().add(new DoubleEntryModel(this, label, state.baseValue, value -> state.setBaseValue(value)));
     }
 
-    private AttributeState addOrUpdateState(Holder<Attribute> holder, Identifier id, CompoundTag backing, double baseValue) {
+    private AttributeState addOrUpdateState(Holder<Attribute> holder, ResourceLocation id, CompoundTag backing, double baseValue) {
         AttributeState state = attributeStates.computeIfAbsent(id, key ->
                 new AttributeState(key, backing == null ? new CompoundTag() : backing.copy(), baseValue, backing != null));
         state.setBaseValue(baseValue);
         return state;
     }
 
-    private Map<Identifier, CompoundTag> readExistingAttributes(CompoundTag data) {
-        Map<Identifier, CompoundTag> existing = new LinkedHashMap<>();
-        if (!data.contains(ATTRIBUTES_TAG)) {
+    private Map<ResourceLocation, CompoundTag> readExistingAttributes(CompoundTag data) {
+        Map<ResourceLocation, CompoundTag> existing = new LinkedHashMap<>();
+        if (!data.contains(ATTRIBUTES_TAG, Tag.TAG_LIST)) {
             return existing;
         }
-        ListTag list = data.getList(ATTRIBUTES_TAG).orElse(null);
-        if (list == null) {
-            return existing;
-        }
+        ListTag list = data.getList(ATTRIBUTES_TAG, Tag.TAG_COMPOUND);
         for (Tag element : list) {
             if (!(element instanceof CompoundTag compound)) {
                 continue;
             }
-            String idString = compound.getString(ID_TAG).orElse("");
-            if (idString.isEmpty()) {
-                idString = compound.getString(LEGACY_ID_TAG).orElse("");
+            String idString = compound.getString(ID_TAG);
+            if (idString.isEmpty() && compound.contains(LEGACY_ID_TAG, Tag.TAG_STRING)) {
+                idString = compound.getString(LEGACY_ID_TAG);
             }
-            Identifier id = Identifier.tryParse(idString);
+            ResourceLocation id = ResourceLocation.tryParse(idString);
             if (id == null) {
                 continue;
             }
@@ -152,10 +149,10 @@ public class EntityAttributesCategoryModel extends EntityCategoryModel {
             return fallback;
         }
         if (tag.contains(BASE_TAG)) {
-            return tag.getDouble(BASE_TAG).orElse(fallback);
+            return tag.getDouble(BASE_TAG);
         }
         if (tag.contains(LEGACY_BASE_TAG)) {
-            return tag.getDouble(LEGACY_BASE_TAG).orElse(fallback);
+            return tag.getDouble(LEGACY_BASE_TAG);
         }
         return fallback;
     }
@@ -174,14 +171,14 @@ public class EntityAttributesCategoryModel extends EntityCategoryModel {
     }
 
     private final class AttributeState {
-        private final Identifier id;
+        private final ResourceLocation id;
         private final CompoundTag tag;
         private final boolean hadExisting;
         private final double originalValue;
         private double baseValue;
         private boolean dirty;
 
-        private AttributeState(Identifier id, CompoundTag tag, double baseValue, boolean hadExisting) {
+        private AttributeState(ResourceLocation id, CompoundTag tag, double baseValue, boolean hadExisting) {
             this.id = id;
             this.tag = tag;
             this.baseValue = baseValue;
@@ -191,10 +188,10 @@ public class EntityAttributesCategoryModel extends EntityCategoryModel {
         }
 
         private void ensureIdentity() {
-            if (!tag.contains(ID_TAG)) {
+            if (!tag.contains(ID_TAG, Tag.TAG_STRING)) {
                 tag.putString(ID_TAG, id.toString());
             }
-            if (!tag.contains(LEGACY_ID_TAG)) {
+            if (!tag.contains(LEGACY_ID_TAG, Tag.TAG_STRING)) {
                 tag.putString(LEGACY_ID_TAG, id.toString());
             }
         }

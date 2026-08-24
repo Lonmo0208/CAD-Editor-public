@@ -4,24 +4,22 @@ import com.github.rinorsi.cadeditor.client.ClientUtil;
 import com.github.rinorsi.cadeditor.client.screen.model.ItemEditorModel;
 import com.github.rinorsi.cadeditor.client.screen.model.entry.EntryModel;
 import com.github.rinorsi.cadeditor.client.screen.model.entry.item.EnchantmentEntryModel;
-import com.github.rinorsi.cadeditor.client.util.NbtHelper;
 import com.github.rinorsi.cadeditor.common.ModTexts;
 import it.unimi.dsi.fastutil.objects.Object2IntMap;
 import net.minecraft.core.Holder;
-import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.Registries;
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.resources.ResourceKey;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
 import net.minecraft.world.item.enchantment.Enchantment;
+import net.minecraft.world.item.enchantment.EnchantmentHelper;
 import net.minecraft.world.item.enchantment.ItemEnchantments;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import net.minecraft.world.item.Items;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -31,7 +29,6 @@ import java.util.Objects;
 import java.util.Set;
 
 public class ItemEnchantmentsCategoryModel extends ItemEditorCategoryModel {
-    private static final Logger LOGGER = LogManager.getLogger();
     private ListTag newEnch;
     private boolean editingStored;
 
@@ -42,27 +39,27 @@ public class ItemEnchantmentsCategoryModel extends ItemEditorCategoryModel {
     @Override
     protected void setupEntries() {
         ItemStack stack = getStack();
-        editingStored = shouldEditStored(stack);
-        ItemEnchantments target = stack.get(editingStored ? DataComponents.STORED_ENCHANTMENTS : DataComponents.ENCHANTMENTS);
+        ItemEnchantments ench = stack.get(DataComponents.ENCHANTMENTS);
+        ItemEnchantments stored = stack.get(DataComponents.STORED_ENCHANTMENTS);
+        editingStored = shouldEditStored(stack, ench, stored);
         boolean any = false;
+        ItemEnchantments target = editingStored ? stored : ench;
+        //TODO Add a small enchantment conflict hint
         if (target != null && !target.isEmpty()) {
             any = true;
             target.entrySet().stream()
                     .map(this::createEnchantment)
                     .forEach(getEntries()::add);
         }
-        if (!any) {
-            CompoundTag data = getData();
-            CompoundTag legacyTag = data != null ? data.getCompound("tag").orElse(null) : null;
-            if (legacyTag != null) {
-                String legacyKey = editingStored ? "StoredEnchantments" : "Enchantments";
-                ListTag enchantList = legacyTag.getList(legacyKey).orElse(null);
-                if (enchantList != null) {
-                    enchantList.stream()
-                            .map(CompoundTag.class::cast)
-                            .map(this::createEnchantment)
-                            .forEach(getEntries()::add);
-                }
+        if (!any && getData().contains("tag", Tag.TAG_COMPOUND)) {
+            String legacyKey = editingStored ? "StoredEnchantments" : "Enchantments";
+            CompoundTag legacy = getTag();
+            if (legacy.contains(legacyKey, Tag.TAG_LIST)) {
+                legacy.getList(legacyKey, Tag.TAG_COMPOUND).stream()
+                    .map(CompoundTag.class::cast)
+                    .map(this::createEnchantment)
+                    .forEach(getEntries()::add);
+                any = true;
             }
         }
     }
@@ -84,20 +81,20 @@ public class ItemEnchantmentsCategoryModel extends ItemEditorCategoryModel {
 
     private EnchantmentEntryModel createEnchantment(Object2IntMap.Entry<Holder<Enchantment>> entry) {
         Holder<Enchantment> holder = entry.getKey();
-        String id = holder.unwrapKey().map(key -> key.identifier().toString()).orElse("");
+        String id = holder.unwrapKey().map(key -> key.location().toString()).orElse("");
         return createEnchantment(id, entry.getIntValue());
     }
 
     private EnchantmentEntryModel createEnchantment(CompoundTag tag) {
-        return createEnchantment(NbtHelper.getString(tag, "id", ""), tag.getIntOr("lvl", 0));
+        return createEnchantment(tag.getString("id"), tag.getInt("lvl"));
     }
 
     private EnchantmentEntryModel createEnchantment(String id, int level) {
         return new EnchantmentEntryModel(this, id, level, this::addEnchantment);
     }
 
-    public Set<Identifier> getExistingEnchantmentIds() {
-        Set<Identifier> set = new HashSet<>();
+    public Set<ResourceLocation> getExistingEnchantmentIds() {
+        Set<ResourceLocation> set = new HashSet<>();
         getEntries().stream()
                 .filter(EnchantmentEntryModel.class::isInstance)
                 .map(EnchantmentEntryModel.class::cast)
@@ -109,7 +106,7 @@ public class ItemEnchantmentsCategoryModel extends ItemEditorCategoryModel {
     }
 
     public void addEnchantmentEntryIfAbsent(String id, int level) {
-        Identifier rl = normalizeId(id);
+        ResourceLocation rl = normalizeId(id);
         if (rl == null || getExistingEnchantmentIds().contains(rl)) {
             return;
         }
@@ -119,8 +116,8 @@ public class ItemEnchantmentsCategoryModel extends ItemEditorCategoryModel {
         updateEntryListIndexes();
     }
 
-    public void syncSelection(Set<Identifier> selectedIds, EnchantmentEntryModel currentEntry) {
-        Set<Identifier> selected = selectedIds == null
+    public void syncSelection(Set<ResourceLocation> selectedIds, EnchantmentEntryModel currentEntry) {
+        Set<ResourceLocation> selected = selectedIds == null
                 ? Set.of()
                 : selectedIds.stream()
                 .filter(Objects::nonNull)
@@ -136,7 +133,7 @@ public class ItemEnchantmentsCategoryModel extends ItemEditorCategoryModel {
             if (entry == currentEntry) {
                 continue;
             }
-            Identifier id = normalizeId(entry.getValue());
+            ResourceLocation id = normalizeId(entry.getValue());
             if (id != null && !selected.contains(id)) {
                 toRemove.add(entry);
             }
@@ -146,7 +143,7 @@ public class ItemEnchantmentsCategoryModel extends ItemEditorCategoryModel {
         }
 
         if (currentEntry != null) {
-            Identifier currentId = normalizeId(currentEntry.getValue());
+            ResourceLocation currentId = normalizeId(currentEntry.getValue());
             if (selected.isEmpty()) {
                 currentEntry.setValue("");
             } else if (currentId == null || !selected.contains(currentId)) {
@@ -155,9 +152,9 @@ public class ItemEnchantmentsCategoryModel extends ItemEditorCategoryModel {
         }
 
         int level = currentEntry == null ? 1 : Math.max(1, currentEntry.getLevel());
-        Identifier currentResolved = currentEntry == null ? null : normalizeId(currentEntry.getValue());
-        Set<Identifier> existing = getExistingEnchantmentIds();
-        for (Identifier id : selected) {
+        ResourceLocation currentResolved = currentEntry == null ? null : normalizeId(currentEntry.getValue());
+        Set<ResourceLocation> existing = getExistingEnchantmentIds();
+        for (ResourceLocation id : selected) {
             if (currentResolved != null && currentResolved.equals(id)) {
                 continue;
             }
@@ -169,9 +166,9 @@ public class ItemEnchantmentsCategoryModel extends ItemEditorCategoryModel {
         updateEntryListIndexes();
     }
 
-    private Identifier normalizeId(String id) {
+    private ResourceLocation normalizeId(String id) {
         String value = id.contains(":") ? id : "minecraft:" + id;
-        return Identifier.tryParse(value);
+        return ResourceLocation.tryParse(value);
     }
 
     private void addEnchantment(String id, int lvl) {
@@ -187,43 +184,43 @@ public class ItemEnchantmentsCategoryModel extends ItemEditorCategoryModel {
         super.apply();
         ItemStack stack = getStack();
         var lookupOpt = ClientUtil.registryAccess().lookup(Registries.ENCHANTMENT);
-        if (lookupOpt.isEmpty()) {
-            LOGGER.error("Missing enchantment registry; cannot apply enchantments to {}", stack);
-            return;
-        }
-        var lookup = lookupOpt.get();
-        ItemEnchantments.Mutable mutable = new ItemEnchantments.Mutable(ItemEnchantments.EMPTY);
-        for (Tag tag : newEnch) {
-            if (!(tag instanceof CompoundTag compoundTag)) {
-                continue;
+        if (lookupOpt.isPresent()) {
+            var lookup = lookupOpt.get();
+            ItemEnchantments.Mutable mutable = new ItemEnchantments.Mutable(ItemEnchantments.EMPTY);
+            for (Tag tag : newEnch) {
+                if (tag instanceof CompoundTag compoundTag) {
+                    String id = compoundTag.getString("id");
+                    int lvl = compoundTag.getInt("lvl");
+                    if (lvl > 0) {
+                        ResourceLocation rl = ResourceLocation.tryParse(id);
+                        if (rl != null) {
+                            ResourceKey<Enchantment> key = ResourceKey.create(Registries.ENCHANTMENT, rl);
+                            lookup.get(key).ifPresent(holder -> mutable.set(holder, lvl));
+                        }
+                    }
+                }
             }
-            String id = NbtHelper.getString(compoundTag, "id", "");
-            int lvl = compoundTag.getIntOr("lvl", 0);
-            if (lvl <= 0) {
-                continue;
-            }
-            Identifier rl = Identifier.tryParse(id);
-            if (rl == null) {
-                continue;
-            }
-            ResourceKey<Enchantment> key = ResourceKey.create(Registries.ENCHANTMENT, rl);
-            lookup.get(key).ifPresent(holder -> mutable.set(holder, lvl));
-        }
-        ItemEnchantments applied = mutable.toImmutable();
-        if (editingStored) {
-            if (applied.isEmpty()) {
-                stack.remove(DataComponents.STORED_ENCHANTMENTS);
+            ItemEnchantments result = mutable.toImmutable();
+            if (editingStored) {
+                if (result.isEmpty()) {
+                    stack.remove(DataComponents.STORED_ENCHANTMENTS);
+                } else {
+                    stack.set(DataComponents.STORED_ENCHANTMENTS, result);
+                }
             } else {
-                stack.set(DataComponents.STORED_ENCHANTMENTS, applied);
+                EnchantmentHelper.setEnchantments(stack, result);
             }
+            clearLegacyEnchantments();
         } else {
-            if (applied.isEmpty()) {
-                stack.remove(DataComponents.ENCHANTMENTS);
-            } else {
-                stack.set(DataComponents.ENCHANTMENTS, applied);
+            if (!newEnch.isEmpty()) {
+                getOrCreateTag().put(editingStored ? "StoredEnchantments" : "Enchantments", newEnch);
+            } else if (getData().contains("tag", Tag.TAG_COMPOUND)) {
+                String legacyKey = editingStored ? "StoredEnchantments" : "Enchantments";
+                if (getTag().contains(legacyKey)) {
+                    getTag().remove(legacyKey);
+                }
             }
         }
-        clearLegacyEnchantments();
     }
 
     private ItemStack getStack() {
@@ -231,26 +228,29 @@ public class ItemEnchantmentsCategoryModel extends ItemEditorCategoryModel {
     }
 
     private void clearLegacyEnchantments() {
-        CompoundTag data = getData();
-        if (data == null) {
-            return;
-        }
-        CompoundTag tag = data.getCompound("tag").orElse(null);
-        if (tag == null) {
-            return;
-        }
-        String key = editingStored ? "StoredEnchantments" : "Enchantments";
-        if (tag.contains(key)) {
-            tag.remove(key);
+        if (getData().contains("tag", Tag.TAG_COMPOUND)) {
+            CompoundTag tag = getTag();
+            String legacyKey = editingStored ? "StoredEnchantments" : "Enchantments";
+            if (tag.contains(legacyKey)) {
+                tag.remove(legacyKey);
+            }
         }
     }
 
-    private boolean shouldEditStored(ItemStack stack) {
+    private boolean shouldEditStored(ItemStack stack, ItemEnchantments ench, ItemEnchantments stored) {
         if (stack.is(Items.ENCHANTED_BOOK)) {
             return true;
         }
-        ItemEnchantments stored = stack.get(DataComponents.STORED_ENCHANTMENTS);
-        ItemEnchantments normal = stack.get(DataComponents.ENCHANTMENTS);
-        return stored != null && (normal == null || normal.isEmpty());
+        if (stored != null && !stored.isEmpty()) {
+            return ench == null || ench.isEmpty();
+        }
+        if (getData().contains("tag", Tag.TAG_COMPOUND)) {
+            CompoundTag tag = getTag();
+            if (tag.contains("StoredEnchantments", Tag.TAG_LIST)
+                    && !tag.getList("StoredEnchantments", Tag.TAG_COMPOUND).isEmpty()) {
+                return true;
+            }
+        }
+        return false;
     }
 }

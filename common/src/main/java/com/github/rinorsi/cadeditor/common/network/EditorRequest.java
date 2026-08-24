@@ -1,6 +1,5 @@
 package com.github.rinorsi.cadeditor.common.network;
 
-import com.github.rinorsi.cadeditor.PlatformUtil;
 import net.minecraft.server.level.ServerPlayer;
 
 public interface EditorRequest<R> {
@@ -9,6 +8,6 @@ public interface EditorRequest<R> {
     NetworkHandler.Client<R> getResponseNetworkHandler();
 
     default void handleRequestAndSendResponse(ServerPlayer player) {
-        PlatformUtil.sendToClient(player, getResponseNetworkHandler(), createResponse(player));
+        NetworkManager.sendToClient(player, getResponseNetworkHandler(), createResponse(player));
     }
 }

@@ -25,11 +25,13 @@ public final class CommonConfiguration {
     private int version;
     private int permissionLevel;
     private boolean creativeOnly;
+    private boolean disabled;
 
     private CommonConfiguration() {
         version = 0;
         permissionLevel = 0;
         creativeOnly = false;
+        disabled = false;
     }
 
     public int getPermissionLevel() {
@@ -50,6 +52,17 @@ public final class CommonConfiguration {
     public void setCreativeOnly(boolean creativeOnly) {
         if (this.creativeOnly != creativeOnly) {
             this.creativeOnly = creativeOnly;
+            changed = true;
+        }
+    }
+
+    public boolean isDisabled() {
+        return disabled;
+    }
+
+    public void setDisabled(boolean disabled) {
+        if (this.disabled != disabled) {
+            this.disabled = disabled;
             changed = true;
         }
     }

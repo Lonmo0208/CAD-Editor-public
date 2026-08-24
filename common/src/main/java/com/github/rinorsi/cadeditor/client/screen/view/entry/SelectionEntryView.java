@@ -11,11 +11,13 @@ public class SelectionEntryView extends StringEntryView {
     private TexturedButton selectionScreenButton;
     private HBox selectionBox;
     private Node previewNode;
+    private Node textContent;
 
     @Override
     protected Node createLabeledContent() {
+        textContent = super.createLabeledContent();
         return selectionBox = hBox(box -> {
-            box.add(super.createLabeledContent(), 1);
+            box.add(textContent, 1);
             box.add(selectionScreenButton = texturedButton(ModTextures.SEARCH, 16, 16, false));
             box.align(CENTER).spacing(4);
         });

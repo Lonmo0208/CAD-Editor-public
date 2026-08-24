@@ -13,10 +13,9 @@ import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 
-import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -148,15 +147,15 @@ public final class GuapiHelper {
         return node().createHBox(with);
     }
 
-    public static ImageViewBuilder imageView(Identifier id) {
+    public static ImageViewBuilder imageView(ResourceLocation id) {
         return node().createImageView(id);
     }
 
-    public static ImageViewBuilder imageView(Identifier id, int imageWidth, int imageHeight) {
+    public static ImageViewBuilder imageView(ResourceLocation id, int imageWidth, int imageHeight) {
         return node().createImageView(id, imageWidth, imageHeight);
     }
 
-    public static ImageViewBuilder imageView(Identifier id, Consumer<ImageViewBuilder> with) {
+    public static ImageViewBuilder imageView(ResourceLocation id, Consumer<ImageViewBuilder> with) {
         return node().createImageView(id, with);
     }
 
@@ -297,27 +296,27 @@ public final class GuapiHelper {
         return node().createTextArea(with);
     }
 
-    public static TexturedButtonBuilder texturedButton(Identifier id, boolean drawButton) {
+    public static TexturedButtonBuilder texturedButton(ResourceLocation id, boolean drawButton) {
         return node().createTexturedButton(id, drawButton);
     }
 
-    public static TexturedButtonBuilder texturedButton(Identifier id, int imageWidth, int imageHeight, boolean drawButton) {
+    public static TexturedButtonBuilder texturedButton(ResourceLocation id, int imageWidth, int imageHeight, boolean drawButton) {
         return node().createTexturedButton(id, imageWidth, imageHeight, drawButton);
     }
 
-    public static TexturedButtonBuilder texturedButton(Identifier id, boolean drawButton, Consumer<TexturedButtonBuilder> with) {
+    public static TexturedButtonBuilder texturedButton(ResourceLocation id, boolean drawButton, Consumer<TexturedButtonBuilder> with) {
         return node().createTexturedButton(id, drawButton, with);
     }
 
-    public static TexturedToggleButtonBuilder texturedToggleButton(Identifier id, boolean drawButton) {
+    public static TexturedToggleButtonBuilder texturedToggleButton(ResourceLocation id, boolean drawButton) {
         return node().createTexturedToggleButton(id, drawButton);
     }
 
-    public static TexturedToggleButtonBuilder texturedToggleButton(Identifier id, int imageWidth, int imageHeight, boolean drawButton) {
+    public static TexturedToggleButtonBuilder texturedToggleButton(ResourceLocation id, int imageWidth, int imageHeight, boolean drawButton) {
         return node().createTexturedToggleButton(id, imageWidth, imageHeight, drawButton);
     }
 
-    public static TexturedToggleButtonBuilder texturedToggleButton(Identifier id, boolean drawButton, Consumer<TexturedToggleButtonBuilder> with) {
+    public static TexturedToggleButtonBuilder texturedToggleButton(ResourceLocation id, boolean drawButton, Consumer<TexturedToggleButtonBuilder> with) {
         return node().createTexturedToggleButton(id, drawButton, with);
     }
 
@@ -420,15 +419,7 @@ public final class GuapiHelper {
     }
 
     public static ClickEvent event(ClickEvent.Action action, String value) {
-        return switch (action) {
-            case OPEN_URL -> new ClickEvent.OpenUrl(URI.create(value));
-            case OPEN_FILE -> new ClickEvent.OpenFile(value);
-            case RUN_COMMAND -> new ClickEvent.RunCommand(value);
-            case SUGGEST_COMMAND -> new ClickEvent.SuggestCommand(value);
-            case CHANGE_PAGE -> new ClickEvent.ChangePage(Integer.parseInt(value));
-            case COPY_TO_CLIPBOARD -> new ClickEvent.CopyToClipboard(value);
-            default -> throw new UnsupportedOperationException("Unsupported click action: " + action);
-        };
+        return new ClickEvent(action, value);
     }
 
     public static ClickEvent link(String url) {

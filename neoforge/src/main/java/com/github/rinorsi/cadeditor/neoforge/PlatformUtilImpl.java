@@ -1,19 +1,21 @@
 package com.github.rinorsi.cadeditor.neoforge;
 
+import com.github.rinorsi.cadeditor.common.ServerContext;
 import com.github.rinorsi.cadeditor.common.network.NetworkHandler;
 import com.github.rinorsi.cadeditor.common.network.PacketSerializer;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.fml.loading.FMLPaths;
-import net.neoforged.neoforge.client.network.ClientPacketDistributor;
+import net.neoforged.neoforge.common.extensions.ICommonPacketListener;
 import net.neoforged.neoforge.network.PacketDistributor;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import net.neoforged.neoforge.network.registration.HandlerThread;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 import net.neoforged.neoforge.network.registration.PayloadRegistrar;
+import net.neoforged.neoforge.network.registration.NetworkRegistry;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -26,6 +28,12 @@ public class PlatformUtilImpl {
         return FMLPaths.CONFIGDIR.get();
     }
 
+    public static String getModVersion() {
+        return net.neoforged.fml.ModList.get().getModContainerById(ForgeCADEditorMod.MOD_ID)
+                .map(container -> container.getModInfo().getVersion().toString())
+                .orElse("unknown");
+    }
+
     private static final String VERSION = "3";
     private static final Object REGISTRATION_LOCK = new Object();
     private static final List<NetworkHandler.Server<?>> PENDING_SERVER_HANDLERS = new ArrayList<>();
@@ -34,11 +42,18 @@ public class PlatformUtilImpl {
     private static PayloadRegistrar activeRegistrar;
 
     public static <P> void sendToServer(NetworkHandler.Server<P> handler, P packet) {
-        ClientPacketDistributor.sendToServer(wrap(handler, packet));
+        PacketDistributor.sendToServer(wrap(handler, packet));
     }
 
     public static <P> void sendToClient(ServerPlayer player, NetworkHandler.Client<P> handler, P packet) {
-        PacketDistributor.sendToPlayer(player, wrap(handler, packet));
+        if (!(player.connection instanceof ICommonPacketListener listener) || !NetworkRegistry.hasChannel(listener, handler.getLocation())) {
+            return;
+        }
+        try {
+            PacketDistributor.sendToPlayer(player, wrap(handler, packet));
+        } catch (Exception e) {
+            // Client may not have the mod installed - silently ignore
+        }
     }
 
     public static <P> void registerServerHandler(NetworkHandler.Server<P> handler) {
@@ -84,7 +99,11 @@ public class PlatformUtilImpl {
     }
 
     private static <P> void handleServer(NetworkHandler.Server<P> handler, P packet, IPayloadContext context) {
-        context.enqueueWork(() -> handler.getPacketHandler().handle((ServerPlayer) context.player(), packet));
+        context.enqueueWork(() -> {
+            ServerPlayer player = (ServerPlayer) context.player();
+            ServerContext.markClientModded(player);
+            handler.getPacketHandler().handle(player, packet);
+        });
     }
 
     private static <P> void handleClient(NetworkHandler.Client<P> handler, P packet, IPayloadContext context) {
@@ -102,7 +121,7 @@ public class PlatformUtilImpl {
     }
 
     private static CustomPacketPayload.Type<?> createType(NetworkHandler<?> handler) {
-        Identifier location = handler.getLocation();
+        ResourceLocation location = handler.getLocation();
         return new CustomPacketPayload.Type<>(location);
     }
 

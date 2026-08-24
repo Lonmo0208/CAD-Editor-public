@@ -10,19 +10,27 @@ import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.server.level.ServerPlayer;
 
-import java.net.URI;
-
-import static com.github.franckyi.guapi.api.GuapiHelper.*;
+import static com.github.franckyi.guapi.api.GuapiHelper.text;
 
 public class ServerEditorCommandLogic {
     private static final MutableComponent MUST_INSTALL = text("You must install CAD Editor in order to use this command.").withStyle(ChatFormatting.RED);
-    private static final MutableComponent DOWNLOAD = text("Click here to download CAD Editor!").withStyle(style -> style.withClickEvent(new ClickEvent.OpenUrl(URI.create("https://www.curseforge.com/minecraft/mc-mods/cad-editor")))).withStyle(ChatFormatting.AQUA, ChatFormatting.UNDERLINE);
-    private static final MutableComponent NO_PERMISSION = text("You must be in creative mode to use this command.").withStyle(ChatFormatting.RED);
+    private static final MutableComponent DOWNLOAD = text("Click here to download CAD Editor!").withStyle(style -> style.withClickEvent(new ClickEvent(ClickEvent.Action.OPEN_URL, "https://www.curseforge.com/minecraft/mc-mods/cad-editor"))).withStyle(ChatFormatting.AQUA, ChatFormatting.UNDERLINE);
+    private static final MutableComponent NO_PERMISSION = text("You must be in creative mode or OP (level 4) to use this command.").withStyle(ChatFormatting.RED);
+    private static final MutableComponent ADMIN_ONLY = text("This editor requires OP (level 4) permissions.").withStyle(ChatFormatting.RED);
 
     public static int commandOpenEditor(ServerPlayer player, EditorCommandPacket.Target target, EditorType type) {
         if (ServerContext.isClientModded(player)) {
-            if (CommonConfiguration.INSTANCE.isCreativeOnly() && !player.isCreative()) {
+            if (CommonConfiguration.INSTANCE.isDisabled()) {
                 player.displayClientMessage(NO_PERMISSION, false);
+                return 2;
+            }
+            PermissionLevel level = PermissionLogic.getPermissionLevel(player);
+            if (!level.hasAnyAccess()) {
+                player.displayClientMessage(NO_PERMISSION, false);
+                return 2;
+            }
+            if (type != EditorType.STANDARD && !level.canUseEditor(type)) {
+                player.displayClientMessage(ADMIN_ONLY, false);
                 return 2;
             }
             NetworkManager.sendToClient(player, NetworkManager.EDITOR_COMMAND, new EditorCommandPacket(target, type));

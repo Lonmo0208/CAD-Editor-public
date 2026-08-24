@@ -136,7 +136,7 @@ public final class BlockEditorPacket {
         }
 
         public Update(Response response, BlockState blockState, CompoundTag tag) {
-            super(response.getRequestData(), new ResponseData(blockState, tag));
+            super(response.getEditorType(), response.getRequestData(), new ResponseData(blockState, tag));
         }
 
         public BlockPos getBlockPos() {

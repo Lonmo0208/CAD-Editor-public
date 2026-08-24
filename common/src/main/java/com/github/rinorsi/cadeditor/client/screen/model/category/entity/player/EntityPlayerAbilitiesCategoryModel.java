@@ -10,6 +10,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.player.Abilities;
 import net.minecraft.network.protocol.game.ServerboundPlayerAbilitiesPacket;
 import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.nbt.Tag;
 
 /**
  * Exposes player abilities toggles and movement speeds.
@@ -31,14 +32,17 @@ public class EntityPlayerAbilitiesCategoryModel extends EntityCategoryModel {
 
     @Override
     protected void setupEntries() {
-        CompoundTag abilities = ensurePlayerTag().getCompound(ABILITIES_TAG).orElseGet(CompoundTag::new);
-        invulnerable = abilities.getBooleanOr("invulnerable", false);
-        mayFly = abilities.getBooleanOr("mayfly", false);
-        flying = abilities.getBooleanOr("flying", false);
-        mayBuild = abilities.contains("mayBuild") ? abilities.getBooleanOr("mayBuild", true) : true;
-        instabuild = abilities.getBooleanOr("instabuild", false);
-        flySpeed = abilities.getFloatOr("flySpeed", 0.05f);
-        walkSpeed = abilities.getFloatOr("walkSpeed", 0.1f);
+        CompoundTag data = ensurePlayerTag();
+        CompoundTag abilities = readAbilitiesTag(data);
+        boolean creativeDefaults = isCreativeGameType(data);
+
+        invulnerable = abilities.contains("invulnerable") && abilities.getBoolean("invulnerable");
+        mayFly = abilities.contains("mayfly") ? abilities.getBoolean("mayfly") : creativeDefaults;
+        flying = abilities.contains("flying") && abilities.getBoolean("flying");
+        mayBuild = !abilities.contains("mayBuild") || abilities.getBoolean("mayBuild");
+        instabuild = abilities.contains("instabuild") ? abilities.getBoolean("instabuild") : creativeDefaults;
+        flySpeed = abilities.contains("flySpeed") ? abilities.getFloat("flySpeed") : 0.05f;
+        walkSpeed = abilities.contains("walkSpeed") ? abilities.getFloat("walkSpeed") : 0.1f;
 
         getEntries().add(new BooleanEntryModel(this, Component.translatable("cadeditor.gui.ability_invulnerable"), invulnerable, value -> invulnerable = value));
         getEntries().add(new BooleanEntryModel(this, Component.translatable("cadeditor.gui.ability_mayfly"), mayFly, value -> mayFly = value));
@@ -54,10 +58,11 @@ public class EntityPlayerAbilitiesCategoryModel extends EntityCategoryModel {
         super.apply();
         CompoundTag data = ensurePlayerTag();
         CompoundTag abilities = new CompoundTag();
+        boolean effectiveMayBuild = mayBuild || instabuild;
         abilities.putBoolean("invulnerable", invulnerable);
         abilities.putBoolean("mayfly", mayFly);
         abilities.putBoolean("flying", flying && mayFly);
-        abilities.putBoolean("mayBuild", mayBuild);
+        abilities.putBoolean("mayBuild", effectiveMayBuild);
         abilities.putBoolean("instabuild", instabuild);
         abilities.putFloat("walkSpeed", clampSpeed(walkSpeed));
         abilities.putFloat("flySpeed", clampSpeed(flySpeed));
@@ -74,7 +79,7 @@ public class EntityPlayerAbilitiesCategoryModel extends EntityCategoryModel {
         abilities.invulnerable = invulnerable;
         abilities.mayfly = mayFly;
         abilities.flying = flying && mayFly;
-        abilities.mayBuild = mayBuild;
+        abilities.mayBuild = mayBuild || instabuild;
         abilities.instabuild = instabuild;
         abilities.setWalkingSpeed(clampSpeed(walkSpeed));
         abilities.setFlyingSpeed(clampSpeed(flySpeed));
@@ -95,5 +100,19 @@ public class EntityPlayerAbilitiesCategoryModel extends EntityCategoryModel {
             getContext().setTag(data);
         }
         return data;
+    }
+
+    private static CompoundTag readAbilitiesTag(CompoundTag root) {
+        if (root.contains(ABILITIES_TAG, Tag.TAG_COMPOUND)) {
+            return root.getCompound(ABILITIES_TAG);
+        }
+        if (root.contains("Abilities", Tag.TAG_COMPOUND)) {
+            return root.getCompound("Abilities");
+        }
+        return new CompoundTag();
+    }
+
+    private static boolean isCreativeGameType(CompoundTag root) {
+        return root.contains("playerGameType", Tag.TAG_INT) && root.getInt("playerGameType") == 1;
     }
 }

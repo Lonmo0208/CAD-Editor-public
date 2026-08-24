@@ -1,5 +1,6 @@
 package com.github.rinorsi.cadeditor.client;
 
+import com.github.rinorsi.cadeditor.PlatformUtil;
 import com.github.rinorsi.cadeditor.common.network.ModNotificationPacket;
 import com.github.rinorsi.cadeditor.common.network.NetworkManager;
 import org.apache.logging.log4j.LogManager;
@@ -20,6 +21,6 @@ public final class ClientContext {
 
     public static void onServerNotification(ModNotificationPacket.Server packet) {
         setModInstalledOnServer(true);
-        NetworkManager.sendToServer(NetworkManager.CLIENT_NOTIFICATION, ModNotificationPacket.Client.INSTANCE);
+        NetworkManager.sendToServer(NetworkManager.CLIENT_NOTIFICATION, new ModNotificationPacket.Client(PlatformUtil.getModVersion()));
     }
 }

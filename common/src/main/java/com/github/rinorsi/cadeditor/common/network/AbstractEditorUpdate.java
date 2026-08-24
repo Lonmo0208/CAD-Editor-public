@@ -1,17 +1,28 @@
 package com.github.rinorsi.cadeditor.common.network;
 
+import com.github.rinorsi.cadeditor.common.EditorType;
 import net.minecraft.network.FriendlyByteBuf;
 
 public abstract class AbstractEditorUpdate<REQ, RES> {
+    private EditorType editorType;
     private REQ requestData;
     private RES responseData;
 
     protected AbstractEditorUpdate() {
     }
 
-    protected AbstractEditorUpdate(REQ requestData, RES responseData) {
+    protected AbstractEditorUpdate(EditorType editorType, REQ requestData, RES responseData) {
+        this.editorType = editorType;
         this.requestData = requestData;
         this.responseData = responseData;
+    }
+
+    public EditorType getEditorType() {
+        return editorType;
+    }
+
+    protected void setEditorType(EditorType editorType) {
+        this.editorType = editorType;
     }
 
     protected REQ getRequestData() {
@@ -33,6 +44,7 @@ public abstract class AbstractEditorUpdate<REQ, RES> {
     protected static abstract class Serializer<T extends AbstractEditorUpdate<REQ, RES>, REQ, RES> implements ImprovedPacketSerializer<T> {
         @Override
         public void write(T obj, FriendlyByteBuf buf) {
+            buf.writeEnum(obj.getEditorType());
             getRequestDataSerializer().write(obj.getRequestData(), buf);
             getResponseDataSerializer().write(obj.getResponseData(), buf);
 
@@ -40,6 +52,7 @@ public abstract class AbstractEditorUpdate<REQ, RES> {
 
         @Override
         public void read(T obj, FriendlyByteBuf buf) {
+            obj.setEditorType(buf.readEnum(EditorType.class));
             obj.setRequestData(getRequestDataSerializer().read(buf));
             obj.setResponseData(getResponseDataSerializer().read(buf));
         }

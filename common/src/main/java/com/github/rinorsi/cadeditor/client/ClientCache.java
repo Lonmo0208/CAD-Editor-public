@@ -7,9 +7,6 @@ import com.github.rinorsi.cadeditor.common.ColoredItemHelper;
 import com.github.rinorsi.cadeditor.common.ModTexts;
 import com.github.rinorsi.cadeditor.common.loot.LootTableIndex;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.Gui;
-import net.minecraft.client.renderer.texture.TextureAtlas;
-import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.core.Holder;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.HolderSet;
@@ -19,18 +16,16 @@ import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.resources.ResourceKey;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.EnchantmentTags;
 import net.minecraft.world.entity.EquipmentSlotGroup;
-import net.minecraft.world.effect.MobEffect;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Instrument;
 import net.minecraft.world.item.Items;
-import net.minecraft.world.item.alchemy.PotionContents;
-import net.minecraft.world.item.equipment.EquipmentAssets;
-import net.minecraft.world.item.equipment.trim.TrimMaterial;
-import net.minecraft.world.item.equipment.trim.TrimPattern;
+import net.minecraft.world.item.alchemy.Potion;
+import net.minecraft.world.item.armortrim.TrimMaterial;
+import net.minecraft.world.item.armortrim.TrimPattern;
 import net.minecraft.world.item.enchantment.Enchantment;
 
 import java.util.ArrayList;
@@ -42,20 +37,13 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 
 public final class ClientCache {
-    private static final Identifier GUI_ATLAS_LOCATION =
-            Identifier.fromNamespaceAndPath("minecraft", "textures/atlas/gui.png");
-
     private static List<String> itemSuggestions;
     private static List<ItemListSelectionElementModel> itemSelectionItems;
     private static List<String> blockSuggestions;
     private static List<ItemListSelectionElementModel> blockSelectionItems;
     private static List<TagListSelectionElementModel> blockTagSelectionItems;
-    private static List<TagListSelectionElementModel> itemTagSelectionItems;
-    private static List<TagListSelectionElementModel> damageTypeTagSelectionItems;
-    private static List<ListSelectionElementModel> damageTypeSelectionItems;
     private static List<String> enchantmentSuggestions;
     private static List<EnchantmentListSelectionElementModel> enchantmentSelectionItems;
     private static List<String> attributeSuggestions;
@@ -79,12 +67,8 @@ public final class ClientCache {
     private static List<String> soundEventSuggestions;
     private static List<SoundEventListSelectionElementModel> soundEventSelectionItems;
     private static List<ListSelectionFilter> soundEventFilters;
-    private static List<String> equipmentAssetSuggestions;
-    private static List<ListSelectionElementModel> equipmentAssetSelectionItems;
-    private static final List<Identifier> BUILTIN_EQUIPMENT_ASSETS = buildBuiltinEquipmentAssets();
     private static List<String> blockEntityTypeSuggestions;
     private static List<String> lootTableSuggestions;
-    private static List<String> componentTypeIds;
 
     public static void invalidate() {
         itemSuggestions = null;
@@ -92,9 +76,6 @@ public final class ClientCache {
         blockSuggestions = null;
         blockSelectionItems = null;
         blockTagSelectionItems = null;
-        itemTagSelectionItems = null;
-        damageTypeTagSelectionItems = null;
-        damageTypeSelectionItems = null;
         enchantmentSuggestions = null;
         enchantmentSelectionItems = null;
         attributeSuggestions = null;
@@ -118,11 +99,8 @@ public final class ClientCache {
         soundEventSuggestions = null;
         soundEventSelectionItems = null;
         soundEventFilters = null;
-        equipmentAssetSuggestions = null;
-        equipmentAssetSelectionItems = null;
         blockEntityTypeSuggestions = null;
         lootTableSuggestions = null;
-        componentTypeIds = null;
     }
 
     public static List<String> getItemSuggestions() {
@@ -144,17 +122,6 @@ public final class ClientCache {
 
     public static List<TagListSelectionElementModel> getBlockTagSelectionItems() {
         return blockTagSelectionItems == null ? blockTagSelectionItems = buildBlockTagSelectionItems() : blockTagSelectionItems;
-    }
-    public static List<TagListSelectionElementModel> getItemTagSelectionItems() {
-        return itemTagSelectionItems == null ? itemTagSelectionItems = buildItemTagSelectionItems() : itemTagSelectionItems;
-    }
-
-    public static List<TagListSelectionElementModel> getDamageTypeTagSelectionItems() {
-        return damageTypeTagSelectionItems == null ? damageTypeTagSelectionItems = buildDamageTypeTagSelectionItems() : damageTypeTagSelectionItems;
-    }
-
-    public static List<ListSelectionElementModel> getDamageTypeSelectionItems() {
-        return damageTypeSelectionItems == null ? damageTypeSelectionItems = buildDamageTypeSelectionItems() : damageTypeSelectionItems;
     }
 
     public static List<String> getBlockEntityTypeSuggestions() {
@@ -190,7 +157,7 @@ public final class ClientCache {
             .toList();
     }
 
-    public static Optional<EnchantmentListSelectionElementModel> findEnchantmentSelectionItem(Identifier id) {
+    public static Optional<EnchantmentListSelectionElementModel> findEnchantmentSelectionItem(ResourceLocation id) {
         if (id == null) {
             return Optional.empty();
         }
@@ -213,37 +180,14 @@ public final class ClientCache {
         }
         Item item = target.getItem();
         var definition = value.definition();
-        Optional<? extends HolderLookup.RegistryLookup<Item>> registry = registryAccess().lookup(Registries.ITEM);
+        Optional<HolderLookup.RegistryLookup<Item>> registry = registryAccess().lookup(Registries.ITEM);
         if (definition.primaryItems().map(set -> holderSetContainsItem(set, item, registry)).orElse(false)) {
             return true;
         }
         return holderSetContainsItem(definition.supportedItems(), item, registry);
     }
 
-    public static List<String> getComponentTypeIds() {
-        if (componentTypeIds == null) {
-            List<String> ids = new ArrayList<>(BuiltInRegistries.DATA_COMPONENT_TYPE.keySet().size());
-            for (Identifier id : BuiltInRegistries.DATA_COMPONENT_TYPE.keySet()) {
-                ids.add(id.toString());
-            }
-            ids.sort(String::compareTo);
-            componentTypeIds = List.copyOf(ids);
-        }
-        return componentTypeIds;
-    }
-
-    public static boolean isComponentIdKnown(String value) {
-        if (value == null || value.isBlank()) {
-            return false;
-        }
-        Identifier id = Identifier.tryParse(value);
-        if (id == null) {
-            return false;
-        }
-        return BuiltInRegistries.DATA_COMPONENT_TYPE.containsKey(id);
-    }
-
-    private static boolean holderSetContainsItem(HolderSet<Item> holders, Item item, Optional<? extends HolderLookup.RegistryLookup<Item>> registry) {
+    private static boolean holderSetContainsItem(HolderSet<Item> holders, Item item, Optional<HolderLookup.RegistryLookup<Item>> registry) {
         if (holders == null) {
             return false;
         }
@@ -291,7 +235,7 @@ public final class ClientCache {
         return attributeSelectionItems == null ? attributeSelectionItems = buildAttributeSelectionItems() : attributeSelectionItems;
     }
 
-    public static Optional<ListSelectionElementModel> findAttributeSelectionItem(Identifier id) {
+    public static Optional<ListSelectionElementModel> findAttributeSelectionItem(ResourceLocation id) {
         if (id == null) {
             return Optional.empty();
         }
@@ -319,14 +263,6 @@ public final class ClientCache {
 
     public static List<String> getEntitySuggestions() {
         return entitySuggestions == null ? entitySuggestions = buildSuggestions(BuiltInRegistries.ENTITY_TYPE) : entitySuggestions;
-    }
-
-    public static List<String> getEquipmentAssetSuggestions() {
-        return equipmentAssetSuggestions == null ? equipmentAssetSuggestions = buildEquipmentAssetSuggestions() : equipmentAssetSuggestions;
-    }
-
-    public static List<ListSelectionElementModel> getEquipmentAssetSelectionItems() {
-        return equipmentAssetSelectionItems == null ? equipmentAssetSelectionItems = buildEquipmentAssetSelectionItems() : equipmentAssetSelectionItems;
     }
 
     public static List<EntityListSelectionElementModel> getEntitySelectionItems() {
@@ -430,7 +366,7 @@ public final class ClientCache {
         return lootTableSuggestions;
     }
 
-    public static Optional<SelectableSpriteListSelectionElementModel> findEffectSelectionItem(Identifier id) {
+    public static Optional<SelectableSpriteListSelectionElementModel> findEffectSelectionItem(ResourceLocation id) {
         if (id == null) {
             return Optional.empty();
         }
@@ -443,7 +379,7 @@ public final class ClientCache {
     private static List<String> buildSuggestions(Registry<?> registry) {
         List<String> suggestions = new ArrayList<>();
         registry.entrySet().stream()
-                .map(e -> e.getKey().identifier().toString())
+                .map(e -> e.getKey().location().toString())
                 .forEach(id -> {
                     suggestions.add(id);
                     if (id.startsWith("minecraft:")) {
@@ -457,7 +393,7 @@ public final class ClientCache {
     private static List<String> buildSuggestions(HolderLookup.RegistryLookup<?> lookup) {
         List<String> suggestions = new ArrayList<>();
         lookup.listElements().forEach(holder -> {
-            String id = holder.key().identifier().toString();
+            String id = holder.key().location().toString();
             suggestions.add(id);
             if (id.startsWith("minecraft:")) {
                 suggestions.add(id.substring(10));
@@ -467,12 +403,12 @@ public final class ClientCache {
     }
 
     private static List<String> buildLootTableSuggestions() {
-        List<Identifier> ids = LootTableIndex.getAll();
+        List<ResourceLocation> ids = LootTableIndex.getAll();
         if (ids.isEmpty()) {
             return List.of();
         }
         LinkedHashSet<String> values = new LinkedHashSet<>();
-        for (Identifier id : ids) {
+        for (ResourceLocation id : ids) {
             String full = id.toString();
             values.add(full);
             if (full.startsWith("minecraft:")) {
@@ -484,38 +420,15 @@ public final class ClientCache {
 
     private static List<ItemListSelectionElementModel> buildItemSelectionItems() {
         return BuiltInRegistries.ITEM.entrySet().stream()
-                .map(e -> (ItemListSelectionElementModel) new SelectableItemListSelectionElementModel(
+                .map(e -> new ItemListSelectionElementModel(
                         e.getValue().getDescriptionId(),
-                        e.getKey().identifier(),
+                        e.getKey().location(),
                         () -> new ItemStack(e.getValue())))
                 .sorted().toList();
     }
 
     private static List<TagListSelectionElementModel> buildBlockTagSelectionItems() {
-        return buildTagSelectionItems(Registries.BLOCK);
-    }
-
-    private static List<TagListSelectionElementModel> buildItemTagSelectionItems() {
-        return buildTagSelectionItems(Registries.ITEM);
-    }
-
-    private static List<TagListSelectionElementModel> buildDamageTypeTagSelectionItems() {
-        return buildTagSelectionItems(Registries.DAMAGE_TYPE);
-    }
-
-    private static List<ListSelectionElementModel> buildDamageTypeSelectionItems() {
-        return registryAccess().lookup(Registries.DAMAGE_TYPE)
-                .map(lookup -> lookup.listElements()
-                        .map(element -> new ListSelectionElementModel(
-                                element.key().identifier().toString(),
-                                element.key().identifier()))
-                        .sorted()
-                        .toList())
-                .orElseGet(List::of);
-    }
-
-    private static <T> List<TagListSelectionElementModel> buildTagSelectionItems(ResourceKey<Registry<T>> registryKey) {
-        return registryAccess().lookup(registryKey)
+        return registryAccess().lookup(Registries.BLOCK)
                 .map(lookup -> lookup.listTags()
                         .map(named -> (TagListSelectionElementModel) new SelectableTagListSelectionElementModel(named.key().location()))
                         .sorted()
@@ -527,34 +440,34 @@ public final class ClientCache {
         return BuiltInRegistries.BLOCK.entrySet().stream()
                 .map(e -> (ItemListSelectionElementModel) new SelectableItemListSelectionElementModel(
                         e.getValue().getDescriptionId(),
-                        e.getKey().identifier(),
+                        e.getKey().location(),
                         () -> new ItemStack(e.getValue())))
                 .sorted().toList();
     }
 
     private static List<EntityListSelectionElementModel> buildEntitySelectionItems() {
         return BuiltInRegistries.ENTITY_TYPE.entrySet().stream()
-                .map(e -> new EntityListSelectionElementModel(e.getValue(), e.getKey().identifier()))
+                .map(e -> new EntityListSelectionElementModel(e.getValue(), e.getKey().location()))
                 .sorted().toList();
     }
 
     private static List<ListSelectionElementModel> buildVillagerProfessionSelectionItems() {
         return BuiltInRegistries.VILLAGER_PROFESSION.entrySet().stream()
-                .map(e -> new ListSelectionElementModel(villagerProfessionTranslation(e.getKey().identifier()), e.getKey().identifier()))
+                .map(e -> new ListSelectionElementModel(villagerProfessionTranslation(e.getKey().location()), e.getKey().location()))
                 .sorted().toList();
     }
 
     private static List<ListSelectionElementModel> buildVillagerTypeSelectionItems() {
         return BuiltInRegistries.VILLAGER_TYPE.entrySet().stream()
-                .map(e -> new ListSelectionElementModel(villagerTypeTranslation(e.getKey().identifier()), e.getKey().identifier()))
+                .map(e -> new ListSelectionElementModel(villagerTypeTranslation(e.getKey().location()), e.getKey().location()))
                 .sorted().toList();
     }
 
-    private static String villagerProfessionTranslation(Identifier id) {
+    private static String villagerProfessionTranslation(ResourceLocation id) {
         return "villager.profession." + id.getPath();
     }
 
-    private static String villagerTypeTranslation(Identifier id) {
+    private static String villagerTypeTranslation(ResourceLocation id) {
         return "entity.minecraft.villager." + id.getPath();
     }
 
@@ -567,7 +480,7 @@ public final class ClientCache {
                             Component categoryLabel = buildEnchantmentCategoryLabel(ref, icon);
                             return new EnchantmentListSelectionElementModel(
                                     ref.value().description().getString(),
-                                    ref.key().identifier(),
+                                    ref.key().location(),
                                     ref,
                                     () -> new ItemStack(iconItem),
                                     categoryLabel);
@@ -591,7 +504,7 @@ public final class ClientCache {
         if (!slotLabels.isEmpty()) {
             return joinComponents(slotLabels);
         }
-        return icon.getHoverName().copy();
+        return safeItemName(icon, icon.getItem());
     }
 
     private static Item getEnchantmentTypeItem(Holder<Enchantment> enchantment) {
@@ -610,10 +523,24 @@ public final class ClientCache {
                 .filter(item -> item != Items.AIR)
                 .forEach(item -> {
                     if (seen.add(item.getDescriptionId())) {
-                        result.add(new ItemStack(item).getHoverName().copy());
+                        result.add(safeItemName(new ItemStack(item), item));
                     }
                 });
         return limitComponentList(result);
+    }
+
+    private static Component safeItemName(ItemStack stack, Item item) {
+        try {
+            return stack.getHoverName().copy();
+        } catch (Throwable ignored) {
+            // Some third-party items may crash while building hover names from malformed internal NBT.
+        }
+        String descriptionId = item.getDescriptionId();
+        if (descriptionId != null && !descriptionId.isEmpty()) {
+            return Component.translatable(descriptionId);
+        }
+        ResourceLocation key = BuiltInRegistries.ITEM.getKey(item);
+        return key == null ? Component.literal("unknown_item") : Component.literal(key.toString());
     }
 
     private static List<Component> describeSlotGroups(List<EquipmentSlotGroup> slots) {
@@ -703,47 +630,36 @@ public final class ClientCache {
 
     private static List<ListSelectionElementModel> buildAttributeSelectionItems() {
         return BuiltInRegistries.ATTRIBUTE.entrySet().stream()
-                .map(e -> new ListSelectionElementModel(e.getValue().getDescriptionId(), e.getKey().identifier()))
+                .map(e -> new ListSelectionElementModel(e.getValue().getDescriptionId(), e.getKey().location()))
                 .sorted().toList();
     }
 
     private static List<ItemListSelectionElementModel> buildPotionSelectionItems() {
-        return registryAccess().lookup(Registries.POTION)
-                .map(lookup -> lookup.listElements()
-                        .map(holder -> {
-                            PotionContents contents = new PotionContents(holder);
-                            String name = contents.getName(Items.POTION.getDescriptionId() + ".effect.").getString();
-                            return new ItemListSelectionElementModel(
-                                    name,
-                                    holder.key().identifier(),
-                                    () -> ColoredItemHelper.createColoredPotionItem(holder.key().identifier(), Color.NONE)
-                            );
-                        })
-                        .sorted()
-                        .toList())
-                .orElseGet(List::of);
+        return BuiltInRegistries.POTION.entrySet().stream()
+                .map(e -> BuiltInRegistries.POTION.getHolder(e.getKey())
+                        .map(holder -> new ItemListSelectionElementModel(
+                                Potion.getName(Optional.of(holder), Items.POTION.getDescriptionId() + ".effect."),
+                                e.getKey().location(),
+                                () -> ColoredItemHelper.createColoredPotionItem(e.getKey().location(), Color.NONE)))
+                        .orElse(null))
+                .filter(Objects::nonNull)
+                .sorted().toList();
     }
 
     private static List<SelectableSpriteListSelectionElementModel> buildEffectSelectionItems() {
-        return registryAccess().lookup(Registries.MOB_EFFECT)
-                .map(lookup -> lookup.listElements()
-                        .map(holder -> new SelectableSpriteListSelectionElementModel(
-                                holder.value().getDescriptionId(),
-                                holder.key().identifier(),
-                                mobEffectSpriteSupplier(holder)))
-                        .sorted()
-                        .toList())
-                .orElseGet(List::of);
+        return BuiltInRegistries.MOB_EFFECT.entrySet().stream()
+                .map(e -> BuiltInRegistries.MOB_EFFECT.getHolder(e.getKey())
+                        .map(holder -> new SelectableSpriteListSelectionElementModel(holder.value().getDescriptionId(), e.getKey().location(), () -> Minecraft.getInstance().getMobEffectTextures().get(holder)))
+                        .orElse(null))
+                .filter(Objects::nonNull)
+                .sorted().toList();
     }
 
     private static List<TrimPatternSelectionElementModel> buildTrimPatternSelectionItems(HolderLookup.RegistryLookup<TrimPattern> lookup) {
         return lookup.listElements()
                 .map(holder -> {
-                    Identifier patternId = holder.key().identifier();
-                    return new TrimPatternSelectionElementModel(
-                            holder.value().description(),
-                            patternId,
-                            () -> patternIconStack(patternId));
+                    var itemHolder = holder.value().templateItem();
+                    return new TrimPatternSelectionElementModel(holder.value().description(), holder.key().location(), iconFromHolder(itemHolder));
                 })
                 .sorted()
                 .toList();
@@ -751,74 +667,23 @@ public final class ClientCache {
 
     private static List<TrimMaterialSelectionElementModel> buildTrimMaterialSelectionItems(HolderLookup.RegistryLookup<TrimMaterial> lookup) {
         return lookup.listElements()
-                .map(holder -> {
-                    Identifier materialId = holder.key().identifier();
-                    return new TrimMaterialSelectionElementModel(
-                            holder.value().description(),
-                            materialId,
-                            () -> materialIconStack(materialId));
-                })
+                .map(holder -> new TrimMaterialSelectionElementModel(holder.value().description(), holder.key().location(), iconFromHolder(holder.value().ingredient())))
                 .sorted()
                 .toList();
     }
 
     private static List<ListSelectionElementModel> buildInstrumentSelectionItems(HolderLookup.RegistryLookup<Instrument> lookup) {
         return lookup.listElements()
-                .map(holder -> new ListSelectionElementModel(holder.key().identifier().toString(), holder.key().identifier()))
+                .map(holder -> new ListSelectionElementModel(holder.key().location().toString(), holder.key().location()))
                 .sorted()
                 .toList();
     }
 
     private static List<SoundEventListSelectionElementModel> buildSoundEventSelectionItems() {
         return BuiltInRegistries.SOUND_EVENT.entrySet().stream()
-                .map(entry -> new SoundEventListSelectionElementModel(entry.getKey().identifier(), entry.getValue()))
+                .map(entry -> new SoundEventListSelectionElementModel(entry.getKey().location(), entry.getValue()))
                 .sorted()
                 .toList();
-    }
-
-    private static List<String> buildEquipmentAssetSuggestions() {
-        return registryAccess().lookup(EquipmentAssets.ROOT_ID)
-                .map(lookup -> lookup.listElements()
-                        .map(element -> element.key().identifier().toString())
-                        .sorted()
-                        .toList())
-                .orElse(BUILTIN_EQUIPMENT_ASSETS.stream()
-                        .map(Identifier::toString)
-                        .collect(Collectors.toUnmodifiableList()));
-    }
-
-    private static List<ListSelectionElementModel> buildEquipmentAssetSelectionItems() {
-        return registryAccess().lookup(EquipmentAssets.ROOT_ID)
-                .map(lookup -> lookup.listElements()
-                        .map(element -> (ListSelectionElementModel) new EquipmentAssetListSelectionElementModel(element.key().identifier()))
-                        .sorted()
-                        .toList())
-                .orElse(BUILTIN_EQUIPMENT_ASSETS.stream()
-                        .map(id -> (ListSelectionElementModel) new EquipmentAssetListSelectionElementModel(id))
-                        .collect(Collectors.toUnmodifiableList()));
-    }
-
-    private static List<Identifier> buildBuiltinEquipmentAssets() {
-        List<Identifier> ids = new ArrayList<>();
-        ids.add(Identifier.withDefaultNamespace("leather"));
-        ids.add(Identifier.withDefaultNamespace("chainmail"));
-        ids.add(Identifier.withDefaultNamespace("iron"));
-        ids.add(Identifier.withDefaultNamespace("gold"));
-        ids.add(Identifier.withDefaultNamespace("diamond"));
-        ids.add(Identifier.withDefaultNamespace("turtle_scute"));
-        ids.add(Identifier.withDefaultNamespace("netherite"));
-        ids.add(Identifier.withDefaultNamespace("armadillo_scute"));
-        ids.add(Identifier.withDefaultNamespace("elytra"));
-        ids.add(Identifier.withDefaultNamespace("saddle"));
-        ids.add(Identifier.withDefaultNamespace("trader_llama"));
-        for (String color : List.of(
-                "white", "orange", "magenta", "light_blue", "yellow", "lime", "pink", "gray",
-                "light_gray", "cyan", "purple", "blue", "brown", "green", "red", "black"
-        )) {
-            ids.add(Identifier.withDefaultNamespace("carpet_" + color));
-            ids.add(Identifier.withDefaultNamespace("harness_" + color));
-        }
-        return List.copyOf(ids);
     }
 
     private static List<ListSelectionFilter> buildSoundEventFilters() {
@@ -846,66 +711,6 @@ public final class ClientCache {
                         ModTexts.soundFilterNamespace(namespace), element -> element instanceof SoundEventListSelectionElementModel sound
                                 && sound.getNamespace().equals(namespace))));
         return List.copyOf(filters);
-    }
-
-    private static Supplier<TextureAtlasSprite> mobEffectSpriteSupplier(Holder<MobEffect> holder) {
-        return () -> {
-            var texture = Minecraft.getInstance().getTextureManager().getTexture(GUI_ATLAS_LOCATION);
-            if (texture instanceof TextureAtlas atlas) {
-                return atlas.getSprite(Gui.getMobEffectSprite(holder));
-            }
-            return ((TextureAtlas) Minecraft.getInstance().getTextureManager().getTexture(GUI_ATLAS_LOCATION))
-                    .getSprite(Gui.getMobEffectSprite(holder));
-        };
-    }
-
-    private static ItemStack patternIconStack(Identifier patternId) {
-        return new ItemStack(patternTemplateItem(patternId));
-    }
-
-    private static Item patternTemplateItem(Identifier patternId) {
-        return switch (patternId.getPath()) {
-            case "sentry" -> Items.SENTRY_ARMOR_TRIM_SMITHING_TEMPLATE;
-            case "dune" -> Items.DUNE_ARMOR_TRIM_SMITHING_TEMPLATE;
-            case "coast" -> Items.COAST_ARMOR_TRIM_SMITHING_TEMPLATE;
-            case "wild" -> Items.WILD_ARMOR_TRIM_SMITHING_TEMPLATE;
-            case "ward" -> Items.WARD_ARMOR_TRIM_SMITHING_TEMPLATE;
-            case "eye" -> Items.EYE_ARMOR_TRIM_SMITHING_TEMPLATE;
-            case "vex" -> Items.VEX_ARMOR_TRIM_SMITHING_TEMPLATE;
-            case "tide" -> Items.TIDE_ARMOR_TRIM_SMITHING_TEMPLATE;
-            case "snout" -> Items.SNOUT_ARMOR_TRIM_SMITHING_TEMPLATE;
-            case "rib" -> Items.RIB_ARMOR_TRIM_SMITHING_TEMPLATE;
-            case "spire" -> Items.SPIRE_ARMOR_TRIM_SMITHING_TEMPLATE;
-            case "wayfinder" -> Items.WAYFINDER_ARMOR_TRIM_SMITHING_TEMPLATE;
-            case "shaper" -> Items.SHAPER_ARMOR_TRIM_SMITHING_TEMPLATE;
-            case "silence" -> Items.SILENCE_ARMOR_TRIM_SMITHING_TEMPLATE;
-            case "raiser" -> Items.RAISER_ARMOR_TRIM_SMITHING_TEMPLATE;
-            case "host" -> Items.HOST_ARMOR_TRIM_SMITHING_TEMPLATE;
-            case "flow" -> Items.FLOW_ARMOR_TRIM_SMITHING_TEMPLATE;
-            case "bolt" -> Items.BOLT_ARMOR_TRIM_SMITHING_TEMPLATE;
-            default -> Items.SENTRY_ARMOR_TRIM_SMITHING_TEMPLATE;
-        };
-    }
-
-    private static ItemStack materialIconStack(Identifier materialId) {
-        return new ItemStack(materialDisplayItem(materialId));
-    }
-
-    private static Item materialDisplayItem(Identifier materialId) {
-        return switch (materialId.getPath()) {
-            case "quartz" -> Items.QUARTZ;
-            case "iron" -> Items.IRON_INGOT;
-            case "netherite" -> Items.NETHERITE_INGOT;
-            case "redstone" -> Items.REDSTONE;
-            case "copper" -> Items.COPPER_INGOT;
-            case "gold" -> Items.GOLD_INGOT;
-            case "emerald" -> Items.EMERALD;
-            case "diamond" -> Items.DIAMOND;
-            case "lapis" -> Items.LAPIS_LAZULI;
-            case "amethyst" -> Items.AMETHYST_SHARD;
-            case "resin" -> Items.RESIN_BRICK;
-            default -> Items.IRON_INGOT;
-        };
     }
 
     private static Supplier<ItemStack> iconFromHolder(Holder<Item> holder) {

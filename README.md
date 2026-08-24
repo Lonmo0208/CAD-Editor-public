@@ -27,9 +27,20 @@ https://github.com/skyecodes/IBE-Editor
 
 ## Installation & requirements
 
+* **Minecraft:** currently 1.21.1 only (more versions planned)
 * **Loaders:** NeoForge or Fabric
 * **Fabric users:** also install [Fabric API](https://www.curseforge.com/minecraft/mc-mods/fabric-api)
 * **Java:** 21 recommended
 
 ## Build from source
+
 The project uses the [Architectury](https://github.com/architectury) toolchain.
+
+```bash
+git clone https://github.com/Rinorsi/CAD-Editor.git
+cd CAD-Editor
+chmod +x gradlew
+./gradlew build
+```
+
+Artifacts will be under `fabric/build/libs` and `neoforge/build/libs`.

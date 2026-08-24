@@ -4,7 +4,7 @@ import com.github.franckyi.guapi.api.node.Node;
 import com.github.franckyi.guapi.api.node.TexturedButton;
 import com.github.franckyi.guapi.api.node.TreeView;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 
 import static com.github.franckyi.guapi.api.GuapiHelper.*;
 
@@ -37,7 +37,7 @@ public class VanillaTreeViewSkinDelegate<E extends TreeView.TreeItem<E>> extends
 
     private void addChild(E item, int increment) {
         NodeEntry<E> entry = new NodeEntry<>(this, item, node.getRenderer().getView(item), increment);
-        addEntry(entry);
+        children().add(entry);
         if (item == node.getFocusedElement()) {
             setFocused(entry);
         }
@@ -50,7 +50,7 @@ public class VanillaTreeViewSkinDelegate<E extends TreeView.TreeItem<E>> extends
     }
 
     protected static class NodeEntry<E extends TreeView.TreeItem<E>> extends AbstractVanillaListNodeSkinDelegate.NodeEntry<TreeView<E>, E, NodeEntry<E>> {
-        private static final Identifier TREE_VIEW_WIDGETS = Identifier.fromNamespaceAndPath(com.github.rinorsi.cadeditor.common.ModConstants.MOD_ID, "textures/gui/tree_view_widgets.png");
+        private static final ResourceLocation TREE_VIEW_WIDGETS = ResourceLocation.fromNamespaceAndPath(com.github.rinorsi.cadeditor.common.ModConstants.MOD_ID, "textures/gui/tree_view_widgets.png");
         private TexturedButton button;
         private final int increment;
 
@@ -83,12 +83,9 @@ public class VanillaTreeViewSkinDelegate<E extends TreeView.TreeItem<E>> extends
         }
 
         @Override
-        public void renderContent(GuiGraphics guiGraphics, int mouseX, int mouseY, boolean hovered, float tickDelta) {
-            int x = getContentX();
-            int y = getContentY();
-            int entryWidth = getContentWidth();
-            int entryHeight = getContentHeight();
+        public void render(GuiGraphics guiGraphics, int index, int y, int x, int entryWidth, int entryHeight, int mouseX, int mouseY, boolean hovered, float tickDelta) {
             int incr = increment * getList().node.getChildrenIncrement();
+            entryWidth = getList().getMaxScroll() == 0 ? entryWidth + 6 : entryWidth;
             getNode().setX(x + incr);
             getNode().setY(y);
             getNode().setParentPrefWidth(entryWidth - incr);

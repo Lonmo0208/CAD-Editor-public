@@ -5,7 +5,7 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.client.resources.language.I18n;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.Comparator;
@@ -14,9 +14,9 @@ import java.util.Locale;
 public class ListSelectionElementModel implements Model, Comparable<ListSelectionElementModel> {
     private static final Comparator<ListSelectionElementModel> COMPARATOR = Comparator.comparing(ListSelectionElementModel::getName);
     private final String name;
-    private final Identifier id;
+    private final ResourceLocation id;
 
-    public ListSelectionElementModel(String name, Identifier id) {
+    public ListSelectionElementModel(String name, ResourceLocation id) {
         this.name = name;
         this.id = id;
     }
@@ -39,7 +39,7 @@ public class ListSelectionElementModel implements Model, Comparable<ListSelectio
         return component;
     }
 
-    public Identifier getId() {
+    public ResourceLocation getId() {
         return id;
     }
 

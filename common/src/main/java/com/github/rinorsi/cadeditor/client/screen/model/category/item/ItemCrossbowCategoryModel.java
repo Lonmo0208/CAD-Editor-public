@@ -5,9 +5,9 @@ import com.github.rinorsi.cadeditor.client.screen.model.entry.EntryModel;
 import com.github.rinorsi.cadeditor.client.screen.model.entry.item.ItemContainerSlotEntryModel;
 import com.github.rinorsi.cadeditor.common.ModTexts;
 import net.minecraft.core.component.DataComponents;
-import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.component.ChargedProjectiles;
+import net.minecraft.nbt.CompoundTag;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -21,7 +21,7 @@ public class ItemCrossbowCategoryModel extends ItemEditorCategoryModel {
     protected void setupEntries() {
         ItemStack stack = getParent().getContext().getItemStack();
         ChargedProjectiles charged = stack.get(DataComponents.CHARGED_PROJECTILES);
-        //TODO 想给这里加个更靠谱的持久化提示，要不然发射后别让玩家以为弹药被吃了（我第一次也以为是这样）
+        //TODO Add a clearer persistence hint so players don't think ammo was consumed after firing
         if (charged != null && !charged.isEmpty()) {
             charged.getItems().forEach(item -> getEntries().add(new ItemContainerSlotEntryModel(this, item)));
         } else {
@@ -58,14 +58,12 @@ public class ItemCrossbowCategoryModel extends ItemEditorCategoryModel {
             stack.set(DataComponents.CHARGED_PROJECTILES, ChargedProjectiles.of(projectiles));
         }
         CompoundTag data = getData();
-        if (data == null) return;
-        CompoundTag components = data.getCompound("components").orElse(null);
-        if (components == null) {
-            return;
-        }
-        components.remove("minecraft:charged_projectiles");
-        if (components.isEmpty()) {
-            data.remove("components");
+        if (data != null && data.contains("components")) {
+            CompoundTag components = data.getCompound("components");
+            components.remove("minecraft:charged_projectiles");
+            if (components.isEmpty()) {
+                data.remove("components");
+            }
         }
     }
 }

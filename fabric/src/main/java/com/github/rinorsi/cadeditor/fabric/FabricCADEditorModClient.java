@@ -5,6 +5,7 @@ import com.github.rinorsi.cadeditor.client.ClientContext;
 import com.github.rinorsi.cadeditor.client.ClientEventHandler;
 import com.github.rinorsi.cadeditor.client.ClientInit;
 import com.github.rinorsi.cadeditor.client.KeyBindings;
+import com.github.rinorsi.cadeditor.client.RainbowNameHandler;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
@@ -26,6 +27,7 @@ public final class FabricCADEditorModClient implements ClientModInitializer {
         KeyBindingHelper.registerKeyBinding(KeyBindings.getVaultKey());
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
+            RainbowNameHandler.onClientTick();
             if (client.player != null && client.screen == null) {
                 ClientEventHandler.onKeyInput();
             }
@@ -46,8 +48,8 @@ public final class FabricCADEditorModClient implements ClientModInitializer {
 
     private void registerContainerScreenKeyHandler(Screen screen) {
         if (screen instanceof AbstractContainerScreen<?> container) {
-            ScreenKeyboardEvents.allowKeyPress(screen).register((current, keyEvent) ->
-                    !ClientEventHandler.onScreenEvent(container, keyEvent.key(), keyEvent.scancode(), keyEvent.modifiers()));
+            ScreenKeyboardEvents.allowKeyPress(screen).register((current, key, scancode, modifiers) ->
+                    !ClientEventHandler.onScreenEvent(container, key, scancode));
         }
     }
 }

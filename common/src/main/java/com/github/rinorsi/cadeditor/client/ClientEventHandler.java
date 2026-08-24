@@ -5,7 +5,6 @@ import com.github.rinorsi.cadeditor.client.logic.ClientVaultActionLogic;
 import com.github.rinorsi.cadeditor.common.EditorType;
 import com.github.rinorsi.cadeditor.common.ModTexts;
 import com.github.rinorsi.cadeditor.mixin.CreativeModeInventoryScreenMixin;
-import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.gui.screens.inventory.CreativeModeInventoryScreen;
 import net.minecraft.world.item.CreativeModeTab;
@@ -32,18 +31,17 @@ public final class ClientEventHandler {
         }
     }
 
-    public static boolean onScreenEvent(AbstractContainerScreen<?> screen, int keyCode, int scanCode, int modifiers) {
+    public static boolean onScreenEvent(AbstractContainerScreen<?> screen, int keyCode, int scanCode) {
         try {
-            KeyEvent keyEvent = new KeyEvent(keyCode, scanCode, modifiers);
-            if (KeyBindings.getEditorKey().matches(keyEvent)) {
+            if (KeyBindings.getEditorKey().matches(keyCode, scanCode)) {
                 return ClientEditorRequestLogic.requestInventoryItemEditor(EditorType.STANDARD, screen);
-            } else if (KeyBindings.getNBTEditorKey().matches(keyEvent)) {
+            } else if (KeyBindings.getNBTEditorKey().matches(keyCode, scanCode)) {
                 return ClientEditorRequestLogic.requestInventoryItemEditor(EditorType.NBT, screen);
-            } else if (KeyBindings.getSNBTEditorKey().matches(keyEvent)) {
+            } else if (KeyBindings.getSNBTEditorKey().matches(keyCode, scanCode)) {
                 return ClientEditorRequestLogic.requestInventoryItemEditor(EditorType.SNBT, screen);
-            } else if (KeyBindings.getVaultKey().matches(keyEvent)) {
-                if (screen instanceof CreativeModeInventoryScreen) {
-                    CreativeModeTab.Type type = CreativeModeInventoryScreenMixin.getSelectedTab().getType();
+            } else if (KeyBindings.getVaultKey().matches(keyCode, scanCode)) {
+                if (screen instanceof CreativeModeInventoryScreen creativeScreen) {
+                    CreativeModeTab.Type type = ((CreativeModeInventoryScreenMixin) creativeScreen).getSelectedTab().getType();
                     if (type == CreativeModeTab.Type.SEARCH) return false;
                 }
                 if (!ClientVaultActionLogic.openVaultSelection(screen)) {

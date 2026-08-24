@@ -4,12 +4,12 @@ import com.github.rinorsi.cadeditor.client.ClientUtil;
 import com.github.rinorsi.cadeditor.client.screen.model.ItemEditorModel;
 import com.github.rinorsi.cadeditor.client.screen.model.entry.EntryModel;
 import com.github.rinorsi.cadeditor.client.screen.model.entry.StringEntryModel;
-import com.github.rinorsi.cadeditor.client.util.NbtHelper;
-import com.github.rinorsi.cadeditor.client.util.SnbtHelper;
 import com.github.rinorsi.cadeditor.common.ModTexts;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.Tag;
+import net.minecraft.nbt.TagParser;
+import net.minecraft.world.LockCode;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.component.ItemContainerContents;
 
@@ -19,6 +19,7 @@ import java.util.Optional;
 
 public class ItemContainerCategoryModel extends ItemEditorCategoryModel {
     private final List<StringEntryModel> slotEntries = new ArrayList<>();
+    private StringEntryModel lockEntry;
 
     public ItemContainerCategoryModel(ItemEditorModel editor) {
         super(ModTexts.CONTAINER_CONTENTS, editor);
@@ -28,8 +29,12 @@ public class ItemContainerCategoryModel extends ItemEditorCategoryModel {
     protected void setupEntries() {
         slotEntries.clear();
         ItemStack stack = getParent().getContext().getItemStack();
+        LockCode lockCode = stack.get(DataComponents.LOCK);
+        String currentLock = lockCode == null || lockCode.equals(LockCode.NO_LOCK) ? "" : lockCode.key();
+        lockEntry = new StringEntryModel(this, ModTexts.LOCK_CODE, currentLock, value -> { });
+        getEntries().add(lockEntry);
         ItemContainerContents contents = stack.get(DataComponents.CONTAINER);
-        //TODO UI还得增强，最好是得让玩家一眼就能设定锁匙
+        //TODO Improve the UI so players can set the lock code at a glance
         if (contents != null) {
             contents.stream().filter(item -> !item.isEmpty())
                     .forEach(item -> getEntries().add(createSlotEntry(formatSlot(item))));
@@ -81,25 +86,41 @@ public class ItemContainerCategoryModel extends ItemEditorCategoryModel {
         } else {
             stack.set(DataComponents.CONTAINER, ItemContainerContents.fromItems(parsed));
         }
+        String lockValue = Optional.ofNullable(lockEntry == null ? "" : lockEntry.getValue()).orElse("").trim();
+        if (lockValue.isEmpty()) {
+            stack.remove(DataComponents.LOCK);
+        } else {
+            stack.set(DataComponents.LOCK, new LockCode(lockValue));
+        }
         CompoundTag data = getData();
         if (data != null) {
-            CompoundTag components = data.getCompound("components").orElse(null);
-            if (components != null) {
+            CompoundTag components = data.getCompound("components");
+            if (!components.isEmpty()) {
                 components.remove("minecraft:container");
+                if (lockValue.isEmpty()) {
+                    components.remove("minecraft:lock");
+                } else {
+                    CompoundTag lockComponent = new CompoundTag();
+                    lockComponent.putString("key", lockValue);
+                    components.put("minecraft:lock", lockComponent);
+                }
                 if (components.isEmpty()) {
                     data.remove("components");
                 }
+            } else if (!lockValue.isEmpty()) {
+                CompoundTag newComponents = new CompoundTag();
+                CompoundTag lockComponent = new CompoundTag();
+                lockComponent.putString("key", lockValue);
+                newComponents.put("minecraft:lock", lockComponent);
+                data.put("components", newComponents);
             }
         }
     }
 
     private Optional<ItemStack> parseSlot(String spec) {
         try {
-            Tag raw = SnbtHelper.parse(spec);
-            if (!(raw instanceof CompoundTag tag)) {
-                return Optional.empty();
-            }
-            ItemStack parsed = ClientUtil.parseItemStack(ClientUtil.registryAccess(), tag);
+            CompoundTag tag = TagParser.parseTag(spec);
+            ItemStack parsed = ItemStack.parseOptional(ClientUtil.registryAccess(), tag);
             if (parsed.isEmpty()) {
                 return Optional.empty();
             }
@@ -110,7 +131,7 @@ public class ItemContainerCategoryModel extends ItemEditorCategoryModel {
     }
 
     private String formatSlot(ItemStack stack) {
-        CompoundTag tag = ClientUtil.saveItemStack(ClientUtil.registryAccess(), stack);
+        CompoundTag tag = (CompoundTag) stack.save(ClientUtil.registryAccess(), new CompoundTag());
         return tag.toString();
     }
 }

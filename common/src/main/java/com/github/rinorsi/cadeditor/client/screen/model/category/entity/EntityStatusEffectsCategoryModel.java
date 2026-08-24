@@ -4,6 +4,7 @@ import com.github.rinorsi.cadeditor.client.ClientCache;
 import com.github.rinorsi.cadeditor.client.ModScreenHandler;
 import com.github.rinorsi.cadeditor.client.context.EntityEditorContext;
 import com.github.rinorsi.cadeditor.client.screen.model.EntityEditorModel;
+import com.github.rinorsi.cadeditor.client.screen.model.category.entity.EntityCategoryModel;
 import com.github.rinorsi.cadeditor.client.screen.model.entry.EntryModel;
 import com.github.rinorsi.cadeditor.client.screen.model.entry.item.PotionEffectEntryModel;
 import com.github.rinorsi.cadeditor.common.ModTexts;
@@ -11,7 +12,7 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -20,20 +21,20 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+/**
+ * Generic category for editing ActiveEffects of any living entity.
+ */
 public class EntityStatusEffectsCategoryModel extends EntityCategoryModel {
+    private static final Component TITLE = Component.translatable("cadeditor.gui.player_effects");
     private static final String EFFECTS_TAG = "ActiveEffects";
 
     public EntityStatusEffectsCategoryModel(EntityEditorModel editor) {
-        super(Component.translatable("cadeditor.gui.player_effects"), editor);
+        super(TITLE, editor);
     }
 
     @Override
     protected void setupEntries() {
-        CompoundTag data = getData();
-        if (data == null) {
-            return;
-        }
-        ListTag effects = data.getList(EFFECTS_TAG).orElseGet(ListTag::new);
+        ListTag effects = ensureEntityTag().getList(EFFECTS_TAG, Tag.TAG_COMPOUND);
         for (Tag element : effects) {
             if (element instanceof CompoundTag compound) {
                 getEntries().add(createEffectEntry(compound));
@@ -78,10 +79,9 @@ public class EntityStatusEffectsCategoryModel extends EntityCategoryModel {
             if (id == null || id.isBlank()) {
                 continue;
             }
-            CompoundTag tag = effect.toCompoundTag();
-            list.add(tag);
+            list.add(effect.toCompoundTag());
         }
-        CompoundTag data = ensureTag();
+        CompoundTag data = ensureEntityTag();
         if (list.isEmpty()) {
             data.remove(EFFECTS_TAG);
         } else {
@@ -99,29 +99,33 @@ public class EntityStatusEffectsCategoryModel extends EntityCategoryModel {
         boolean showIcon = true;
 
         if (tag != null) {
-            id = tag.getString("id")
-                    .or(() -> tag.getString("Id"))
-                    .orElse(id);
-            if (id.isEmpty()) {
-                id = tag.getInt("Id").map(value -> Integer.toString(value)).orElse(id);
+            if (tag.contains("id", Tag.TAG_STRING)) {
+                id = tag.getString("id");
+            } else if (tag.contains("Id", Tag.TAG_BYTE)) {
+                id = Integer.toString(Byte.toUnsignedInt(tag.getByte("Id")));
             }
-            amplifier = tag.getIntOr("amplifier", tag.getIntOr("Amplifier", amplifier));
-            duration = Math.max(1, tag.getIntOr("duration", tag.getIntOr("Duration", duration)));
-            duration = Math.max(1, duration);
-            ambient = tag.getBoolean("ambient").orElse(tag.getBooleanOr("Ambient", ambient));
-            showParticles = tag.getBoolean("show_particles")
-                    .or(() -> tag.getBoolean("ShowParticles"))
-                    .orElse(true);
-            showIcon = tag.getBoolean("show_icon")
-                    .or(() -> tag.getBoolean("ShowIcon"))
-                    .orElse(true);
+            amplifier = tag.contains("amplifier", Tag.TAG_INT) ? tag.getInt("amplifier") : tag.getInt("Amplifier");
+            if (tag.contains("duration", Tag.TAG_INT)) {
+                duration = Math.max(1, tag.getInt("duration"));
+            } else if (tag.contains("Duration", Tag.TAG_INT)) {
+                duration = Math.max(1, tag.getInt("Duration"));
+            }
+            ambient = tag.contains("ambient", Tag.TAG_BYTE) ? tag.getBoolean("ambient") : tag.getBoolean("Ambient");
+            showParticles = !tag.contains("show_particles", Tag.TAG_BYTE) || tag.getBoolean("show_particles");
+            if (tag.contains("ShowParticles", Tag.TAG_BYTE)) {
+                showParticles = tag.getBoolean("ShowParticles");
+            }
+            showIcon = !tag.contains("show_icon", Tag.TAG_BYTE) || tag.getBoolean("show_icon");
+            if (tag.contains("ShowIcon", Tag.TAG_BYTE)) {
+                showIcon = tag.getBoolean("ShowIcon");
+            }
         }
 
         return new PotionEffectEntryModel(this, id, Math.max(0, amplifier), Math.max(1, duration), ambient, showParticles, showIcon, updated -> {});
     }
 
     private void openEffectSelection() {
-        Set<Identifier> current = collectEffectIds();
+        Set<ResourceLocation> current = collectEffectIds();
         ModScreenHandler.openListSelectionScreen(ModTexts.EFFECTS.copy(),
                 "", ClientCache.getEffectSelectionItems(),
                 value -> {}, true,
@@ -129,11 +133,11 @@ public class EntityStatusEffectsCategoryModel extends EntityCategoryModel {
                 current);
     }
 
-    private void applySelectedEffects(List<Identifier> selected) {
-        Map<Identifier, PotionEffectEntryModel> existing = new LinkedHashMap<>();
+    private void applySelectedEffects(List<ResourceLocation> selected) {
+        Map<ResourceLocation, PotionEffectEntryModel> existing = new LinkedHashMap<>();
         for (EntryModel entry : getEntries()) {
             if (entry instanceof PotionEffectEntryModel effect) {
-                Identifier id = Identifier.tryParse(effect.getValue());
+                ResourceLocation id = ResourceLocation.tryParse(effect.getValue());
                 if (id != null) {
                     existing.putIfAbsent(id, effect);
                 }
@@ -141,7 +145,7 @@ public class EntityStatusEffectsCategoryModel extends EntityCategoryModel {
         }
         List<PotionEffectEntryModel> desired = new ArrayList<>();
         if (selected != null) {
-            for (Identifier id : selected) {
+            for (ResourceLocation id : selected) {
                 PotionEffectEntryModel entry = existing.remove(id);
                 if (entry == null) {
                     entry = createEffectEntry(new CompoundTag());
@@ -163,11 +167,11 @@ public class EntityStatusEffectsCategoryModel extends EntityCategoryModel {
         updateEntryListIndexes();
     }
 
-    private Set<Identifier> collectEffectIds() {
-        Set<Identifier> ids = new LinkedHashSet<>();
+    private Set<ResourceLocation> collectEffectIds() {
+        Set<ResourceLocation> ids = new LinkedHashSet<>();
         for (EntryModel entry : getEntries()) {
             if (entry instanceof PotionEffectEntryModel effect) {
-                Identifier id = Identifier.tryParse(effect.getValue());
+                ResourceLocation id = ResourceLocation.tryParse(effect.getValue());
                 if (id != null) {
                     ids.add(id);
                 }
@@ -176,11 +180,12 @@ public class EntityStatusEffectsCategoryModel extends EntityCategoryModel {
         return ids;
     }
 
-    private CompoundTag ensureTag() {
-        CompoundTag data = getData();
+    private CompoundTag ensureEntityTag() {
+        EntityEditorContext context = getContext();
+        CompoundTag data = context.getTag();
         if (data == null) {
             data = new CompoundTag();
-            getContext().setTag(data);
+            context.setTag(data);
         }
         return data;
     }

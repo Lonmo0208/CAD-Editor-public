@@ -16,7 +16,7 @@ import java.util.Map;
 import java.util.Optional;
 
 /**
- * 仅负责“地图标记”编辑的分类，提供更高的行高，避免影响地图其它选项的行距。
+ * Category that only edits map decorations; uses a taller row height to avoid affecting other map options' spacing.
  */
 public class ItemMapDecorationsCategoryModel extends ItemEditorCategoryModel {
     private MapDecorationEntryModel decorationEntry;

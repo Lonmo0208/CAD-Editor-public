@@ -11,6 +11,7 @@ import net.minecraft.core.HolderLookup;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.world.item.DiggerItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.component.Tool;
 import net.minecraft.world.level.block.Block;
@@ -21,7 +22,6 @@ import java.util.List;
 public class ItemToolCategoryModel extends ItemEditorCategoryModel {
     private float defaultMiningSpeed;
     private int damagePerBlock;
-    private boolean creativeCanBreak;
 
     public ItemToolCategoryModel(ItemEditorModel editor) {
         super(ModTexts.TOOL, editor);
@@ -31,16 +31,15 @@ public class ItemToolCategoryModel extends ItemEditorCategoryModel {
     protected void setupEntries() {
         ItemStack stack = getParent().getContext().getItemStack();
         Tool tool = stack.get(DataComponents.TOOL);
-        Tool baseTool = stack.getItem().components().get(DataComponents.TOOL);
-        Tool effective = tool != null ? tool : baseTool;
-        if (effective != null) {
-            defaultMiningSpeed = effective.defaultMiningSpeed();
-            damagePerBlock = effective.damagePerBlock();
-            creativeCanBreak = effective.canDestroyBlocksInCreative();
+        if (tool != null) {
+            defaultMiningSpeed = tool.defaultMiningSpeed();
+            damagePerBlock = tool.damagePerBlock();
+        } else if (stack.getItem() instanceof DiggerItem digger) {
+            defaultMiningSpeed = digger.getTier().getSpeed();
+            damagePerBlock = digger.getTier().getUses() > 0 ? 1 : 0;
         } else {
             defaultMiningSpeed = 1f;
             damagePerBlock = 0;
-            creativeCanBreak = false;
         }
         getEntries().add(new FloatEntryModel(this, ModTexts.TOOL_MINING_SPEED, defaultMiningSpeed,
                 value -> defaultMiningSpeed = value == null ? 1f : value));
@@ -94,19 +93,17 @@ public class ItemToolCategoryModel extends ItemEditorCategoryModel {
         if (hasInvalid) {
             return;
         }
-        if (parsedRules.isEmpty() && Math.abs(defaultMiningSpeed - 1f) < 1e-6 && damagePerBlock <= 0 && !creativeCanBreak) {
+        if (parsedRules.isEmpty() && Math.abs(defaultMiningSpeed - 1f) < 1e-6 && damagePerBlock <= 0) {
             stack.remove(DataComponents.TOOL);
         } else {
-            stack.set(DataComponents.TOOL, new Tool(parsedRules, defaultMiningSpeed, damagePerBlock, creativeCanBreak));
+            stack.set(DataComponents.TOOL, new Tool(parsedRules, defaultMiningSpeed, damagePerBlock));
         }
         CompoundTag tag = getData();
-        if (tag != null) {
-            CompoundTag components = tag.getCompound("components").orElse(null);
-            if (components != null) {
-                components.remove("minecraft:tool");
-                if (components.isEmpty()) {
-                    tag.remove("components");
-                }
+        if (tag != null && tag.contains("components")) {
+            CompoundTag components = tag.getCompound("components");
+            components.remove("minecraft:tool");
+            if (components.isEmpty()) {
+                tag.remove("components");
             }
         }
     }

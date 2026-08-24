@@ -15,8 +15,9 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 
 import java.util.ArrayList;
@@ -72,7 +73,7 @@ public class ItemContainerSlotEntryController extends EntryController<ItemContai
             tooltip.add(ModTexts.choose(ModTexts.ITEM).copy().withStyle(ChatFormatting.GRAY));
             return;
         }
-        Identifier id = BuiltInRegistries.ITEM.getKey(stack.getItem());
+        ResourceLocation id = BuiltInRegistries.ITEM.getKey(stack.getItem());
         tooltip.add(Component.literal(id.toString()).withStyle(ChatFormatting.DARK_GRAY));
         tooltip.add(ModTexts.COUNT.copy().withStyle(ChatFormatting.GRAY)
                 .append(Component.literal(": ").withStyle(ChatFormatting.DARK_GRAY))
@@ -86,14 +87,15 @@ public class ItemContainerSlotEntryController extends EntryController<ItemContai
                 return;
             }
             try {
-                Identifier id = Identifier.parse(selection);
-                    BuiltInRegistries.ITEM.getOptional(id).ifPresent(item -> {
-                        model.setItemStack(new ItemStack(item));
-                        updateItemName();
-                        if (afterSelection != null) {
-                            afterSelection.run();
-                        }
-                    });
+                ResourceLocation id = ResourceLocation.parse(selection);
+                Item item = BuiltInRegistries.ITEM.get(id);
+                if (item != null) {
+                    model.setItemStack(new ItemStack(item));
+                    updateItemName();
+                    if (afterSelection != null) {
+                        afterSelection.run();
+                    }
+                }
             } catch (Exception ignored) {
             }
         });
@@ -129,11 +131,11 @@ public class ItemContainerSlotEntryController extends EntryController<ItemContai
         List<VaultItemListSelectionElementModel> elements = new ArrayList<>();
         Map<String, ItemStack> stacksById = new LinkedHashMap<>();
         for (int i = 0; i < storedItems.size(); i++) {
-            ItemStack stack = ClientUtil.parseItemStack(ClientUtil.registryAccess(), storedItems.get(i));
+            ItemStack stack = ItemStack.parseOptional(ClientUtil.registryAccess(), storedItems.get(i));
             if (stack.isEmpty()) {
                 continue;
             }
-            Identifier id = Identifier.withDefaultNamespace("inventory_vault_item_" + i);
+            ResourceLocation id = ResourceLocation.withDefaultNamespace("inventory_vault_item_" + i);
             elements.add(new VaultItemListSelectionElementModel(id, stack));
             stacksById.put(id.toString(), stack.copy());
         }

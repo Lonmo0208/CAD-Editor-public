@@ -117,7 +117,7 @@ public final class PlayerInventoryItemEditorPacket extends InventoryItemEditorPa
         }
 
         public Update(Response response, ItemStack itemStack) {
-            super(response.getRequestData(), new ResponseData(itemStack));
+            super(response.getEditorType(), response.getRequestData(), new ResponseData(itemStack));
         }
     }
 }

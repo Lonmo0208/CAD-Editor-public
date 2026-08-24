@@ -5,7 +5,6 @@ import com.github.rinorsi.cadeditor.client.ClientUtil;
 import com.github.rinorsi.cadeditor.client.Vault;
 import com.github.rinorsi.cadeditor.common.ModTexts;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ByteTag;
 import net.minecraft.nbt.DoubleTag;
@@ -14,16 +13,12 @@ import net.minecraft.nbt.IntTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.LongTag;
 import net.minecraft.nbt.ShortTag;
-import net.minecraft.nbt.NumericTag;
 import net.minecraft.nbt.StringTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
-import net.minecraft.nbt.NbtOps;
-import net.minecraft.resources.RegistryOps;
-import net.minecraft.resources.Identifier;
-import com.mojang.serialization.DataResult;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -39,7 +34,6 @@ import java.util.function.Consumer;
 import java.util.regex.Pattern;
 
 public class ItemEditorContext extends EditorContext<ItemEditorContext> {
-    private static final double GIVE_NON_FINITE_REPLACEMENT = 2048.0;
     private static final Pattern SIMPLE_KEY = Pattern.compile("[a-z0-9_\\-+.]+");
     private static final Set<String> BOOLEAN_HINTS = Set.of(
             "enchantment_glint_override",
@@ -59,25 +53,6 @@ public class ItemEditorContext extends EditorContext<ItemEditorContext> {
             "glint_override"
     );
     private ItemStack itemStack;
-    private GiveSanitizeReport lastGiveSanitizeReport = GiveSanitizeReport.none();
-
-    private static final class GiveFormatContext {
-        private int nonFiniteReplacementCount;
-
-        private void markNonFiniteReplacement() {
-            nonFiniteReplacementCount++;
-        }
-    }
-
-    private record GiveSanitizeReport(int nonFiniteReplacementCount) {
-        private static GiveSanitizeReport none() {
-            return new GiveSanitizeReport(0);
-        }
-
-        private boolean hasReplacements() {
-            return nonFiniteReplacementCount > 0;
-        }
-    }
 
     public ItemEditorContext(ItemStack itemStack, Component errorTooltip, boolean canSaveToVault, Consumer<ItemEditorContext> action) {
         super(saveStack(itemStack), errorTooltip, canSaveToVault, action);
@@ -168,18 +143,13 @@ public class ItemEditorContext extends EditorContext<ItemEditorContext> {
         return pathContains(path, "minecraft:trim") || pathContains(path, "Trim") || pathContains(path, "trim");
     }
 
-    private static ItemStack decodeStack(HolderLookup.Provider lookup, CompoundTag edited) {
-        return ClientUtil.parseItemStack(edited);
-    }
-
     @Override
     public void update() {
         ItemStack result = itemStack.copy();
         CompoundTag edited = getTag();
-        HolderLookup.Provider lookup = ClientUtil.registryAccess();
         if (edited != null) {
             try {
-                ItemStack parsed = decodeStack(lookup, edited);
+                ItemStack parsed = ItemStack.parseOptional(ClientUtil.registryAccess(), edited);
                 if (!parsed.isEmpty()) {
                     result = parsed;
                 }
@@ -213,22 +183,34 @@ public class ItemEditorContext extends EditorContext<ItemEditorContext> {
     }
 
     private static CompoundTag saveStack(ItemStack stack) {
-        return ClientUtil.saveItemStack(stack);
+        if (stack == null || stack.isEmpty()) {
+            CompoundTag tag = new CompoundTag();
+            tag.putString("id", BuiltInRegistries.ITEM.getKey(Items.AIR).toString());
+            tag.putByte("Count", (byte) 0);
+            return tag;
+        }
+        var tag = stack.save(ClientUtil.registryAccess(), new CompoundTag());
+        return tag instanceof CompoundTag compound ? compound : new CompoundTag();
     }
 
-    private String buildGiveCommand(ItemStack stack) {
-        GiveFormatContext formatContext = new GiveFormatContext();
+    private static String buildGiveCommand(ItemStack stack) {
         CompoundTag data = saveStack(stack);
-        String id = data.getStringOr("id", BuiltInRegistries.ITEM.getKey(stack.getItem()).toString());
-        CompoundTag components = data.getCompound("components")
-                .map(CompoundTag::copy)
-                .orElseGet(CompoundTag::new);
-        if (data.contains("tag") && !components.contains("minecraft:custom_data")) {
-            data.getCompound("tag").filter(tag -> !tag.isEmpty())
-                    .ifPresent(legacy -> components.put("minecraft:custom_data", legacy.copy()));
+        String id = data.getString("id");
+        if (id == null || id.isEmpty()) {
+            id = BuiltInRegistries.ITEM.getKey(stack.getItem()).toString();
+        }
+        CompoundTag components = data.contains("components", Tag.TAG_COMPOUND)
+                ? data.getCompound("components").copy()
+                : new CompoundTag();
+        if (data.contains("tag", Tag.TAG_COMPOUND)
+                && !components.contains("minecraft:custom_data", Tag.TAG_COMPOUND)) {
+            CompoundTag legacy = data.getCompound("tag");
+            if (!legacy.isEmpty()) {
+                components.put("minecraft:custom_data", legacy.copy());
+            }
         }
         StringBuilder builder = new StringBuilder("/give @p ").append(id);
-        String componentSpec = formatComponentList(components, formatContext);
+        String componentSpec = formatComponentList(components);
         if (!componentSpec.isEmpty()) {
             builder.append(componentSpec);
         }
@@ -236,16 +218,15 @@ public class ItemEditorContext extends EditorContext<ItemEditorContext> {
         if (count > 1) {
             builder.append(' ').append(count);
         }
-        lastGiveSanitizeReport = new GiveSanitizeReport(formatContext.nonFiniteReplacementCount);
         return builder.toString();
     }
 
-    private static String formatComponentList(CompoundTag components, GiveFormatContext formatContext) {
+    private static String formatComponentList(CompoundTag components) {
         if (components == null || components.isEmpty()) {
             return "";
         }
         CompoundTag normalized = normalizeComponents(components);
-        List<String> keys = new ArrayList<>(normalized.keySet());
+        List<String> keys = new ArrayList<>(normalized.getAllKeys());
         Collections.sort(keys);
         StringJoiner joiner = new StringJoiner(", ", "[", "]");
         boolean hasEntry = false;
@@ -257,7 +238,7 @@ public class ItemEditorContext extends EditorContext<ItemEditorContext> {
             if (value == null || value.getId() == Tag.TAG_END) {
                 continue;
             }
-            String rendered = formatTagValue(key, value, formatContext);
+            String rendered = formatTagValue(key, value);
             if (rendered.isEmpty()) {
                 continue;
             }
@@ -271,12 +252,18 @@ public class ItemEditorContext extends EditorContext<ItemEditorContext> {
         CompoundTag normalized = components.copy();
         Tag attributeTag = normalized.get("minecraft:attribute_modifiers");
         if (attributeTag instanceof CompoundTag attributeCompound) {
-            ListTag modifiers = attributeCompound.getListOrEmpty("modifiers");
+            ListTag modifiers = attributeCompound.getList("modifiers", Tag.TAG_COMPOUND);
             if (!modifiers.isEmpty()) {
-                Set<Identifier> usedIds = new HashSet<>();
+                Set<UUID> usedIds = new HashSet<>();
                 for (Tag entryTag : modifiers) {
                     if (entryTag instanceof CompoundTag modifier) {
-                        Identifier id = resolveModifierId(modifier, usedIds);
+                        UUID id = readModifierUUID(modifier);
+                        if (id != null && !usedIds.add(id)) {
+                            id = null;
+                        }
+                        if (id == null) {
+                            id = generateModifierUUID(modifier, usedIds);
+                        }
                         modifier.putString("id", id.toString());
                     }
                 }
@@ -285,58 +272,16 @@ public class ItemEditorContext extends EditorContext<ItemEditorContext> {
         return normalized;
     }
 
-    private static Identifier resolveModifierId(CompoundTag modifier, Set<Identifier> usedIds) {
-        String rawId = modifier.getString("id").orElse("").trim();
-        if (!rawId.isEmpty()) {
-            UUID uuid = parseUuidString(rawId);
-            if (uuid != null) {
-                return createModifierIdFromUuid(uuid, usedIds);
-            }
-            Identifier parsed = normalizeModifierId(rawId);
-            if (parsed != null && usedIds.add(parsed)) {
-                return parsed;
-            }
-        }
-        UUID uuid = readModifierUUID(modifier);
-        if (uuid != null) {
-            return createModifierIdFromUuid(uuid, usedIds);
-        }
-        return createModifierIdFromSeed(buildModifierSeed(modifier), usedIds);
-    }
-
-    private static Identifier createModifierIdFromSeed(String seed, Set<Identifier> usedIds) {
-        UUID uuid = UUID.nameUUIDFromBytes(seed.getBytes(StandardCharsets.UTF_8));
-        return createModifierIdFromUuid(uuid, usedIds);
-    }
-
-    private static Identifier createModifierIdFromUuid(UUID uuid, Set<Identifier> usedIds) {
-        String compact = uuid.toString().replace("-", "");
-        String basePath = "m_" + compact.substring(0, 12);
-        Identifier direct = Identifier.fromNamespaceAndPath("cadeditor", basePath);
-        if (usedIds.add(direct)) {
-            return direct;
-        }
-        int suffix = 1;
+    private static UUID generateModifierUUID(CompoundTag modifier, Set<UUID> usedIds) {
+        String seed = buildModifierSeed(modifier);
+        int salt = 0;
         while (true) {
-            Identifier withSuffix = Identifier.fromNamespaceAndPath(
-                    "cadeditor",
-                    basePath + "_" + Integer.toHexString(suffix++)
-            );
-            if (usedIds.add(withSuffix)) {
-                return withSuffix;
+            UUID uuid = UUID.nameUUIDFromBytes((seed + "#" + salt).getBytes(StandardCharsets.UTF_8));
+            if (usedIds.add(uuid)) {
+                return uuid;
             }
+            salt++;
         }
-    }
-
-    private static Identifier normalizeModifierId(String raw) {
-        String value = raw == null ? "" : raw.trim();
-        if (value.isEmpty()) {
-            return null;
-        }
-        if (!value.contains(":")) {
-            value = "minecraft:" + value;
-        }
-        return Identifier.tryParse(value);
     }
 
     private static String buildModifierSeed(CompoundTag modifier) {
@@ -368,10 +313,10 @@ public class ItemEditorContext extends EditorContext<ItemEditorContext> {
             return null;
         }
         if (tag.getId() == Tag.TAG_STRING) {
-            return parseUuidString(((StringTag) tag).asString().orElse(""));
+            return parseUuidString(((StringTag) tag).getAsString());
         }
         if (tag.getId() == Tag.TAG_INT_ARRAY) {
-            return modifier.getIntArray(key).map(ItemEditorContext::uuidFromIntArray).orElse(null);
+            return uuidFromIntArray(modifier.getIntArray(key));
         }
         return null;
     }
@@ -422,27 +367,27 @@ public class ItemEditorContext extends EditorContext<ItemEditorContext> {
         return new UUID(most, least);
     }
 
-    private static String formatTagValue(String key, Tag tag, GiveFormatContext formatContext) {
+    private static String formatTagValue(String key, Tag tag) {
         return switch (tag.getId()) {
-            case Tag.TAG_COMPOUND -> formatCompound((CompoundTag) tag, formatContext);
-            case Tag.TAG_LIST -> formatList((ListTag) tag, formatContext);
-            case Tag.TAG_STRING -> formatString(((StringTag) tag).asString().orElse(""));
-            case Tag.TAG_BYTE -> formatByte(key, ((NumericTag) tag).byteValue());
-            case Tag.TAG_SHORT -> Integer.toString(((NumericTag) tag).shortValue());
-            case Tag.TAG_INT -> Integer.toString(((NumericTag) tag).intValue());
-            case Tag.TAG_LONG -> Long.toString(((NumericTag) tag).longValue());
-            case Tag.TAG_FLOAT -> formatFloating(((NumericTag) tag).floatValue(), formatContext);
-            case Tag.TAG_DOUBLE -> formatFloating(((NumericTag) tag).doubleValue(), formatContext);
+            case Tag.TAG_COMPOUND -> formatCompound((CompoundTag) tag);
+            case Tag.TAG_LIST -> formatList((ListTag) tag);
+            case Tag.TAG_STRING -> formatString(((StringTag) tag).getAsString());
+            case Tag.TAG_BYTE -> formatByte(key, ((ByteTag) tag).getAsByte());
+            case Tag.TAG_SHORT -> Integer.toString(((ShortTag) tag).getAsShort());
+            case Tag.TAG_INT -> Integer.toString(((IntTag) tag).getAsInt());
+            case Tag.TAG_LONG -> Long.toString(((LongTag) tag).getAsLong());
+            case Tag.TAG_FLOAT -> formatFloating(((FloatTag) tag).getAsFloat());
+            case Tag.TAG_DOUBLE -> formatFloating(((DoubleTag) tag).getAsDouble());
             case Tag.TAG_BYTE_ARRAY, Tag.TAG_INT_ARRAY, Tag.TAG_LONG_ARRAY -> tag.toString();
             default -> tag.toString();
         };
     }
 
-    private static String formatCompound(CompoundTag tag, GiveFormatContext formatContext) {
+    private static String formatCompound(CompoundTag tag) {
         if (tag.isEmpty()) {
             return "{}";
         }
-        List<String> keys = new ArrayList<>(tag.keySet());
+        List<String> keys = new ArrayList<>(tag.getAllKeys());
         Collections.sort(keys);
         StringJoiner joiner = new StringJoiner(", ", "{", "}");
         for (String key : keys) {
@@ -451,19 +396,19 @@ public class ItemEditorContext extends EditorContext<ItemEditorContext> {
                 continue;
             }
             String formattedKey = SIMPLE_KEY.matcher(key).matches() ? key : StringTag.quoteAndEscape(key);
-            String formattedValue = formatTagValue(key, value, formatContext);
+            String formattedValue = formatTagValue(key, value);
             joiner.add(formattedKey + ":" + formattedValue);
         }
         return joiner.toString();
     }
 
-    private static String formatList(ListTag list, GiveFormatContext formatContext) {
+    private static String formatList(ListTag list) {
         if (list.isEmpty()) {
             return "[]";
         }
         StringJoiner joiner = new StringJoiner(", ", "[", "]");
         for (Tag tag : list) {
-            joiner.add(formatTagValue(null, tag, formatContext));
+            joiner.add(formatTagValue(null, tag));
         }
         return joiner.toString();
     }
@@ -493,15 +438,9 @@ public class ItemEditorContext extends EditorContext<ItemEditorContext> {
                 bare.startsWith("hide_");
     }
 
-    private static String formatFloating(double value, GiveFormatContext formatContext) {
-        if (Double.isNaN(value)) {
-            formatContext.markNonFiniteReplacement();
-            return formatFixed(GIVE_NON_FINITE_REPLACEMENT, 1);
-        }
-        if (Double.isInfinite(value)) {
-            formatContext.markNonFiniteReplacement();
-            double replaced = value > 0 ? GIVE_NON_FINITE_REPLACEMENT : -GIVE_NON_FINITE_REPLACEMENT;
-            return formatFixed(replaced, 1);
+    private static String formatFloating(double value) {
+        if (Double.isNaN(value) || Double.isInfinite(value)) {
+            return Double.toString(value);
         }
         double roundedTenth = Math.round(value * 10.0) / 10.0;
         if (Math.abs(value - roundedTenth) < 1e-6) {
@@ -539,12 +478,6 @@ public class ItemEditorContext extends EditorContext<ItemEditorContext> {
     @Override
     protected MutableComponent getCopySuccessMessage() {
         if ("/give".equals(getCommandName())) {
-            if (lastGiveSanitizeReport.hasReplacements()) {
-                return ModTexts.Messages.successCopyGiveCommandSanitized(
-                        lastGiveSanitizeReport.nonFiniteReplacementCount(),
-                        trimTrailingZeros(Double.toString(GIVE_NON_FINITE_REPLACEMENT))
-                );
-            }
             return ModTexts.Messages.successCopyGiveCommand();
         }
         return super.getCopySuccessMessage();

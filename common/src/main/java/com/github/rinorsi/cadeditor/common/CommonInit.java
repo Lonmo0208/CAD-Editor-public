@@ -17,7 +17,8 @@ public final class CommonInit {
         LOGGER.info("设置 CAD Editor（通用模块）");
         NetworkManager.setup();
         CommonConfiguration.load();
-        //TODO 后面要在这里挂CI冒烟、性能监控和多平台一致性的初始化
+        VersionWhitelist.load();
+        //TODO later hook CI smoke tests, performance monitoring, and multi-platform consistency initialization here
     }
 }
 

@@ -7,14 +7,21 @@
   "client": [
     "FoodDataAccessor",
     "AbstractContainerScreenMixin",
+    "AbstractSelectionListMixin",
     "AbstractWidgetMixin",
     "CompoundTagMixin",
     "CreativeModeInventoryScreenMixin",
+    "MultiPlayerGameModeMixin",
     "EditBoxMixin",
     "MultiLineEditBoxMixin",
     "MultilineTextFieldMixin",
-    "MultilineTextFieldStringViewAccessor",
-    "InventoryAccessor"
+    "ItemStackMixin"
+  ],
+  "mixins": [
+    "ServerGamePacketListenerImplMixin",
+    "ServerPlayerGameModeMixin",
+    "InstantKillLivingEntityMixin",
+    "InstantKillPlayerMixin"
   ],
   "injectors": {
     "defaultRequire": 1

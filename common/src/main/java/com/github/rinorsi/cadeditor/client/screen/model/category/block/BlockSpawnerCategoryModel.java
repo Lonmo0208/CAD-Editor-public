@@ -8,7 +8,7 @@ import com.github.rinorsi.cadeditor.client.screen.model.entry.IntegerEntryModel;
 import com.github.rinorsi.cadeditor.common.ModTexts;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.EntityType;
 
 public class BlockSpawnerCategoryModel extends BlockEditorCategoryModel {
@@ -58,7 +58,7 @@ public class BlockSpawnerCategoryModel extends BlockEditorCategoryModel {
         CompoundTag rawSpawnData = readCompound(tag, KEY_SPAWN_DATA_SNAKE, KEY_SPAWN_DATA_LEGACY);
         CompoundTag entityData = extractEntityData(rawSpawnData);
         spawnDataExtras = extractSpawnDataExtras(rawSpawnData);
-        initialEntityId = normalizeEntityId(entityData.getStringOr("id", ""));
+        initialEntityId = normalizeEntityId(entityData.getString("id"));
         DebugLog.info(() -> "[SpawnerModel] setup preferSnake=" + preferSnakeCase
                 + " initialEntity=" + initialEntityId
                 + " hasSpawnData=" + !rawSpawnData.isEmpty()
@@ -131,7 +131,7 @@ public class BlockSpawnerCategoryModel extends BlockEditorCategoryModel {
         writeInt(tag, KEY_SPAWN_RANGE_SNAKE, KEY_SPAWN_RANGE_LEGACY, spawnRange, preferSnakeCase);
 
         CompoundTag entity = sanitizeEntityData(entityEntry.copyValue());
-        String selectedEntityId = normalizeEntityId(entity.getStringOr("id", ""));
+        String selectedEntityId = normalizeEntityId(entity.getString("id"));
         boolean entityChanged = !selectedEntityId.equals(initialEntityId);
         if (entity.isEmpty() || !entity.contains("id")) {
             tag.remove(KEY_SPAWN_DATA_SNAKE);
@@ -173,8 +173,8 @@ public class BlockSpawnerCategoryModel extends BlockEditorCategoryModel {
         if (entityData == null || entityData.isEmpty()) {
             return null;
         }
-        String id = entityData.getStringOr("id", "");
-        Identifier location = ClientUtil.parseResourceLocation(id);
+        String id = entityData.getString("id");
+        ResourceLocation location = ClientUtil.parseResourceLocation(id);
         return location == null ? null : BuiltInRegistries.ENTITY_TYPE.getOptional(location).orElse(null);
     }
 
@@ -184,7 +184,7 @@ public class BlockSpawnerCategoryModel extends BlockEditorCategoryModel {
         }
         for (String key : ENTITY_KEYS) {
             if (spawnData.contains(key)) {
-                return spawnData.getCompound(key).map(CompoundTag::copy).orElseGet(CompoundTag::new);
+                return spawnData.getCompound(key).copy();
             }
         }
         if (looksLikeEntityData(spawnData)) {
@@ -215,12 +215,12 @@ public class BlockSpawnerCategoryModel extends BlockEditorCategoryModel {
             return new CompoundTag();
         }
         CompoundTag sanitized = entityData.copy();
-        String id = sanitized.getStringOr("id", "").trim();
+        String id = sanitized.getString("id").trim();
         if (id.isEmpty()) {
             sanitized.remove("id");
             return sanitized;
         }
-        Identifier parsed = ClientUtil.parseResourceLocation(id);
+        ResourceLocation parsed = ClientUtil.parseResourceLocation(id);
         if (parsed != null) {
             sanitized.putString("id", parsed.toString());
         } else {
@@ -234,10 +234,10 @@ public class BlockSpawnerCategoryModel extends BlockEditorCategoryModel {
             return fallback;
         }
         if (tag.contains(primaryKey)) {
-            return tag.getIntOr(primaryKey, fallback);
+            return tag.getInt(primaryKey);
         }
         if (tag.contains(secondaryKey)) {
-            return tag.getIntOr(secondaryKey, fallback);
+            return tag.getInt(secondaryKey);
         }
         return fallback;
     }
@@ -247,10 +247,10 @@ public class BlockSpawnerCategoryModel extends BlockEditorCategoryModel {
             return new CompoundTag();
         }
         if (tag.contains(primaryKey)) {
-            return tag.getCompound(primaryKey).map(CompoundTag::copy).orElseGet(CompoundTag::new);
+            return tag.getCompound(primaryKey).copy();
         }
         if (tag.contains(secondaryKey)) {
-            return tag.getCompound(secondaryKey).map(CompoundTag::copy).orElseGet(CompoundTag::new);
+            return tag.getCompound(secondaryKey).copy();
         }
         return new CompoundTag();
     }
@@ -295,7 +295,7 @@ public class BlockSpawnerCategoryModel extends BlockEditorCategoryModel {
             return "";
         }
         String trimmed = value.trim();
-        Identifier parsed = ClientUtil.parseResourceLocation(trimmed);
+        ResourceLocation parsed = ClientUtil.parseResourceLocation(trimmed);
         return parsed == null ? trimmed : parsed.toString();
     }
 

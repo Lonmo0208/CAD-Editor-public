@@ -9,33 +9,21 @@ import com.github.rinorsi.cadeditor.mixin.AbstractWidgetMixin;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.events.GuiEventListener;
-import net.minecraft.client.input.MouseButtonInfo;
 
 public interface VanillaWidgetSkinDelegate extends Renderable, EventTarget, GuiEventListener {
-    private static net.minecraft.client.input.MouseButtonEvent toNativeMouseButtonEvent(MouseButtonEvent event) {
-        return new net.minecraft.client.input.MouseButtonEvent(
-                event.getMouseX(),
-                event.getMouseY(),
-                new MouseButtonInfo(event.getButton(), 0));
-    }
-
-    private static net.minecraft.client.input.KeyEvent toNativeKeyEvent(KeyEvent event) {
-        return new net.minecraft.client.input.KeyEvent(event.getKeyCode(), event.getScanCode(), event.getModifiers());
-    }
-
     @Override
     default void mouseClicked(MouseButtonEvent event) {
-        ((GuiEventListener) this).mouseClicked(toNativeMouseButtonEvent(event), false);
+        mouseClicked(event.getMouseX(), event.getMouseY(), event.getButton());
     }
 
     @Override
     default void mouseReleased(MouseButtonEvent event) {
-        ((GuiEventListener) this).mouseReleased(toNativeMouseButtonEvent(event));
+        mouseReleased(event.getMouseX(), event.getMouseY(), event.getButton());
     }
 
     @Override
     default void mouseDragged(MouseDragEvent event) {
-        ((GuiEventListener) this).mouseDragged(toNativeMouseButtonEvent(event), event.getDeltaX(), event.getDeltaY());
+        mouseDragged(event.getMouseX(), event.getMouseY(), event.getButton(), event.getDeltaX(), event.getDeltaY());
     }
 
     @Override
@@ -45,17 +33,17 @@ public interface VanillaWidgetSkinDelegate extends Renderable, EventTarget, GuiE
 
     @Override
     default void keyPressed(KeyEvent event) {
-        ((GuiEventListener) this).keyPressed(toNativeKeyEvent(event));
+        keyPressed(event.getKeyCode(), event.getScanCode(), event.getModifiers());
     }
 
     @Override
     default void keyReleased(KeyEvent event) {
-        ((GuiEventListener) this).keyReleased(toNativeKeyEvent(event));
+        keyReleased(event.getKeyCode(), event.getScanCode(), event.getModifiers());
     }
 
     @Override
     default void charTyped(TypeEvent event) {
-        ((GuiEventListener) this).charTyped(new net.minecraft.client.input.CharacterEvent(event.getCharacter(), event.getModifiers()));
+        charTyped(event.getCharacter(), event.getModifiers());
     }
 
     @Override

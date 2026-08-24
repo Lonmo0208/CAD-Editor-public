@@ -10,6 +10,7 @@ import com.github.rinorsi.cadeditor.client.screen.model.entry.entity.ItemFrameIt
 import com.github.rinorsi.cadeditor.common.ModTexts;
 import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.Tag;
 import net.minecraft.world.item.ItemStack;
 
 /**
@@ -28,23 +29,27 @@ public class EntityItemFrameCategoryModel extends EntityCategoryModel {
     protected void setupEntries() {
         CompoundTag data = getData();
 
-        Direction facing = Direction.from3DDataValue(Byte.toUnsignedInt(data.getByteOr("Facing", (byte) 0)));
+        byte facingByte = data.contains("Facing", Tag.TAG_ANY_NUMERIC) ? data.getByte("Facing") : 0;
+        Direction facing = Direction.from3DDataValue(Byte.toUnsignedInt(facingByte));
         EnumEntryModel<Direction> facingEntry = new EnumEntryModel<>(this, ModTexts.ITEM_FRAME_FACING, Direction.values(), facing, this::setFacing);
-        facingEntry.withTextFactory(ModTexts::direction);
+        facingEntry.withTextFactory(direction -> ModTexts.direction(direction));
         getEntries().add(facingEntry);
 
-        getEntries().add(new BooleanEntryModel(this, ModTexts.ITEM_FRAME_FIXED, data.getBooleanOr("Fixed", false), this::setFixed));
-        getEntries().add(new BooleanEntryModel(this, ModTexts.ITEM_FRAME_INVISIBLE, data.getBooleanOr("Invisible", false), this::setInvisible));
+        boolean fixed = data.contains("Fixed") && data.getBoolean("Fixed");
+        getEntries().add(new BooleanEntryModel(this, ModTexts.ITEM_FRAME_FIXED, fixed, this::setFixed));
+        boolean invisible = data.contains("Invisible") && data.getBoolean("Invisible");
+        getEntries().add(new BooleanEntryModel(this, ModTexts.ITEM_FRAME_INVISIBLE, invisible, this::setInvisible));
 
         ItemStack currentItem = readDisplayedItem();
         itemEntry = new ItemFrameItemEntryModel(this, currentItem, ModTexts.ITEM_FRAME_ITEM);
         itemEntry.itemStackProperty().addListener(stack -> updateItemData());
         getEntries().add(itemEntry);
 
-        itemDropChance = data.contains("ItemDropChance") ? data.getFloatOr("ItemDropChance", 1f) : 1f;
+        itemDropChance = data.contains("ItemDropChance", Tag.TAG_ANY_NUMERIC) ? data.getFloat("ItemDropChance") : 1f;
         getEntries().add(new FloatEntryModel(this, ModTexts.ITEM_FRAME_DROP_CHANCE, itemDropChance, this::setItemDropChance));
 
-        itemRotation = Byte.toUnsignedInt(data.getByteOr("ItemRotation", (byte) 0));
+        byte rotationByte = data.contains("ItemRotation", Tag.TAG_ANY_NUMERIC) ? data.getByte("ItemRotation") : 0;
+        itemRotation = Byte.toUnsignedInt(rotationByte);
         getEntries().add(new IntegerEntryModel(this, ModTexts.ITEM_FRAME_ROTATION, itemRotation, this::setItemRotation, value -> value != null && value >= 0 && value <= 7));
 
         updateItemData();
@@ -81,11 +86,11 @@ public class EntityItemFrameCategoryModel extends EntityCategoryModel {
     }
 
     private ItemStack readDisplayedItem() {
-        CompoundTag itemTag = getData().getCompound("Item").orElse(null);
+        CompoundTag itemTag = getData().contains("Item", Tag.TAG_COMPOUND) ? getData().getCompound("Item") : null;
         if (itemTag == null || itemTag.isEmpty()) {
             return ItemStack.EMPTY;
         }
-        return ClientUtil.parseItemStack(ClientUtil.registryAccess(), itemTag);
+        return ItemStack.parseOptional(ClientUtil.registryAccess(), itemTag);
     }
 
     private void updateItemData() {
@@ -100,7 +105,8 @@ public class EntityItemFrameCategoryModel extends EntityCategoryModel {
             data.remove("ItemRotation");
             return;
         }
-        data.put("Item", ClientUtil.saveItemStack(ClientUtil.registryAccess(), stack));
+        CompoundTag saved = (CompoundTag) stack.save(ClientUtil.registryAccess(), new CompoundTag());
+        data.put("Item", saved);
         if (Math.abs(itemDropChance - 1f) > 1.0e-6f) {
             data.putFloat("ItemDropChance", itemDropChance);
         } else {

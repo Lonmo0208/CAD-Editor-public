@@ -17,7 +17,7 @@ import com.github.rinorsi.cadeditor.client.util.ScreenScalingManager;
 import com.github.rinorsi.cadeditor.common.EditorType;
 import com.github.rinorsi.cadeditor.common.ModTexts;
 import net.minecraft.network.chat.MutableComponent;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -46,7 +46,7 @@ public final class ModScreenHandler {
 
     public static void openListSelectionScreen(MutableComponent title, String attributeName, List<? extends ListSelectionElementModel> items,
                                                Consumer<String> action, boolean multiSelect,
-                                               Consumer<List<Identifier>> multiAction, Set<Identifier> initiallySelected) {
+                                               Consumer<List<ResourceLocation>> multiAction, Set<ResourceLocation> initiallySelected) {
         openListSelectionScreen(title, attributeName, items, action, multiSelect, multiAction, initiallySelected,
                 Collections.emptyList(), null);
     }
@@ -60,8 +60,8 @@ public final class ModScreenHandler {
     public static void openListSelectionScreen(MutableComponent title, String attributeName,
                                                List<? extends ListSelectionElementModel> items, Consumer<String> action,
                                                boolean multiSelect,
-                                               Consumer<List<Identifier>> multiAction,
-                                               Set<Identifier> initiallySelected,
+                                               Consumer<List<ResourceLocation>> multiAction,
+                                               Set<ResourceLocation> initiallySelected,
                                                List<ListSelectionFilter> filters,
                                                String initialFilterId) {
         openScaledScreen(mvc(ListSelectionScreenMVC.INSTANCE,
@@ -103,16 +103,11 @@ public final class ModScreenHandler {
     }
 
     public static void openEditor(EditorType editorType, EditorContext<?> context, boolean replace) {
-        EditorType resolvedEditorType = editorType;
-        if (resolvedEditorType != EditorType.STANDARD && context.getTag() == null) {
-            if (context instanceof BlockEditorContext blockContext && !blockContext.getBlockState().hasBlockEntity()) {
-                resolvedEditorType = EditorType.STANDARD;
-            } else {
-                ClientUtil.showMessage(ModTexts.Messages.NO_BLOCK_DATA);
-                return;
-            }
+        if (editorType != EditorType.STANDARD && context.getTag() == null) {
+            ClientUtil.showMessage(ModTexts.Messages.NO_BLOCK_DATA);
+            return;
         }
-        openScaledScreen(switch (resolvedEditorType) {
+        openScaledScreen(switch (editorType) {
             case STANDARD -> {
                 if (context instanceof ItemEditorContext ctx) {
                     yield mvc(StandardEditorMVC.INSTANCE, new ItemEditorModel(ctx));

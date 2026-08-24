@@ -1,9 +1,9 @@
 package com.github.rinorsi.cadeditor.client.screen.model.selection.element;
 
-import net.minecraft.util.Util;
+import net.minecraft.Util;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.sounds.SoundEvent;
 
 import java.util.ArrayList;
@@ -55,7 +55,7 @@ public class SoundEventListSelectionElementModel extends ListSelectionElementMod
     private final String categorySearch;
     private final SoundEvent soundEvent;
 
-    public SoundEventListSelectionElementModel(Identifier id, SoundEvent event) {
+    public SoundEventListSelectionElementModel(ResourceLocation id, SoundEvent event) {
         super(id.toString(), id);
         this.soundEvent = event;
         this.namespace = id.getNamespace();
@@ -98,11 +98,10 @@ public class SoundEventListSelectionElementModel extends ListSelectionElementMod
         return super.matches(s) || searchName.contains(lower) || categorySearch.contains(lower);
     }
 
-    private static SoundCategory classify(Identifier id, String displayName) {
+    private static SoundCategory classify(ResourceLocation id, String displayName) {
         String fullId = id.toString().toLowerCase(Locale.ROOT);
         List<String> tokens = tokenize(fullId, displayName);
         Map<SoundCategory, Integer> scores = new EnumMap<>(SoundCategory.class);
-
         for (SoundCategory category : SoundCategory.values()) {
             scores.put(category, 0);
         }

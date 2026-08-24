@@ -2,8 +2,9 @@ package com.github.rinorsi.cadeditor.client.screen.view;
 
 import com.github.franckyi.guapi.api.node.Label;
 import com.github.franckyi.guapi.api.node.Node;
-import com.github.franckyi.guapi.api.node.TexturedButton;
+import com.github.franckyi.guapi.api.node.TextArea;
 import com.github.rinorsi.cadeditor.client.screen.widget.SyntaxHighlightingTextArea;
+import com.github.franckyi.guapi.api.node.TexturedButton;
 import com.github.franckyi.guapi.api.node.TexturedToggleButton;
 import com.github.franckyi.guapi.api.node.TreeView;
 import com.github.franckyi.guapi.api.node.VBox;
@@ -15,7 +16,7 @@ import net.minecraft.network.chat.MutableComponent;
 import static com.github.franckyi.guapi.api.GuapiHelper.*;
 
 public class SNBTEditorView extends ScreenView {
-    private SyntaxHighlightingTextArea textArea;
+    private TextArea textArea;
     private TexturedButton formatButton;
     private TexturedToggleButton previewToggle;
     private VBox editorContainer;
@@ -46,10 +47,10 @@ public class SNBTEditorView extends ScreenView {
 
     @Override
     protected Node createEditor() {
-        textArea = new SyntaxHighlightingTextArea();
-        textArea.minHeight(200);
-        textArea.prefHeight(Integer.MAX_VALUE);
-        textArea.maxHeight(Integer.MAX_VALUE);
+        textArea = new SyntaxHighlightingTextArea()
+                .minHeight(200)
+                .prefHeight(Integer.MAX_VALUE)
+                .maxHeight(Integer.MAX_VALUE);
         previewPane = vBox(preview -> {
             preview.spacing(4).fillWidth();
             preview.add(previewTree = treeView(SNBTPreviewNode.class)
@@ -69,7 +70,7 @@ public class SNBTEditorView extends ScreenView {
         });
     }
 
-    public SyntaxHighlightingTextArea getTextArea() {
+    public TextArea getTextArea() {
         return textArea;
     }
 

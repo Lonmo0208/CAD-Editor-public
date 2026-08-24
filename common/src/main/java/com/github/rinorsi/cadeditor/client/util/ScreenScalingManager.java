@@ -96,9 +96,7 @@ public final class ScreenScalingManager {
 
     private void setScreenScale(int value) {
         mc().getWindow().setGuiScale(mc().getWindow().calculateScale(value, mc().isEnforceUnicode()));
-        if (mc().screen != null) {
-            mc().screen.resize(mc().getWindow().getGuiScaledWidth(), mc().getWindow().getGuiScaledHeight());
-        }
+        mc().screen.resize(mc(), mc().getWindow().getGuiScaledWidth(), mc().getWindow().getGuiScaledHeight());
     }
 
     private int getDefaultScale() {

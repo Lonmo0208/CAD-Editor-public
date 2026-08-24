@@ -110,7 +110,7 @@ public final class EntityEditorPacket {
         }
 
         public Update(Response response, CompoundTag tag) {
-            super(response.getRequestData(), new ResponseData(tag));
+            super(response.getEditorType(), response.getRequestData(), new ResponseData(tag));
         }
 
         public int getEntityId() {

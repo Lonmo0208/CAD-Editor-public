@@ -2,8 +2,6 @@ package com.github.franckyi.guapi.base.theme.vanilla.delegate;
 
 import com.github.franckyi.guapi.api.node.Slider;
 import net.minecraft.client.gui.components.AbstractSliderButton;
-import net.minecraft.client.input.KeyEvent;
-import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.Mth;
 import org.lwjgl.glfw.GLFW;
@@ -30,13 +28,13 @@ public class VanillaSliderSkinDelegate extends AbstractSliderButton implements V
     }
 
     @Override
-    public void onClick(MouseButtonEvent event, boolean isDoubleClick) {
-        updateNodeFromMouse(event.x());
+    public void onClick(double mouseX, double mouseY) {
+        updateNodeFromMouse(mouseX);
     }
 
     @Override
-    protected void onDrag(MouseButtonEvent event, double deltaX, double deltaY) {
-        updateNodeFromMouse(event.x());
+    protected void onDrag(double mouseX, double mouseY, double deltaX, double deltaY) {
+        updateNodeFromMouse(mouseX);
     }
 
     @Override
@@ -61,15 +59,13 @@ public class VanillaSliderSkinDelegate extends AbstractSliderButton implements V
     }
 
     @Override
-    public boolean keyPressed(KeyEvent event) {
-        if (event.key() == GLFW.GLFW_KEY_RIGHT) {
+    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        if (keyCode == GLFW.GLFW_KEY_RIGHT) {
             node.increment();
-            return true;
-        } else if (event.key() == GLFW.GLFW_KEY_LEFT) {
+        } else if (keyCode == GLFW.GLFW_KEY_LEFT) {
             node.decrement();
-            return true;
         }
-        return super.keyPressed(event);
+        return false;
     }
 
     @Override

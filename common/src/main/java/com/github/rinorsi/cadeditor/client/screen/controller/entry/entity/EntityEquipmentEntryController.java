@@ -14,8 +14,9 @@ import com.github.rinorsi.cadeditor.common.ModTexts;
 import com.github.rinorsi.cadeditor.client.screen.model.selection.element.VaultItemListSelectionElementModel;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import org.lwjgl.glfw.GLFW;
@@ -149,14 +150,15 @@ public class EntityEquipmentEntryController extends EntryController<EntityEquipm
                 return;
             }
             try {
-                Identifier id = Identifier.parse(selection);
-                BuiltInRegistries.ITEM.getOptional(id).ifPresent(item -> {
+                ResourceLocation id = ResourceLocation.parse(selection);
+                Item item = BuiltInRegistries.ITEM.get(id);
+                if (item != null) {
                     model.setItemStack(new ItemStack(item));
                     placeholder = false;
                     if (afterSelection != null) {
                         afterSelection.run();
                     }
-                });
+                }
             } catch (Exception ignored) {
             }
         });
@@ -167,11 +169,11 @@ public class EntityEquipmentEntryController extends EntryController<EntityEquipm
         Map<String, ItemStack> stacksById = new LinkedHashMap<>();
         List<CompoundTag> storedItems = Vault.getInstance().getItems();
         for (int i = 0; i < storedItems.size(); i++) {
-            ItemStack stack = ClientUtil.parseItemStack(ClientUtil.registryAccess(), storedItems.get(i));
+            ItemStack stack = ItemStack.parseOptional(ClientUtil.registryAccess(), storedItems.get(i));
             if (stack.isEmpty()) {
                 continue;
             }
-            Identifier id = Identifier.fromNamespaceAndPath("cadeditor", "equipment_vault_item_" + i);
+            ResourceLocation id = ResourceLocation.fromNamespaceAndPath("cadeditor", "equipment_vault_item_" + i);
             elements.add(new VaultItemListSelectionElementModel(id, stack));
             stacksById.put(id.toString(), stack.copy());
         }

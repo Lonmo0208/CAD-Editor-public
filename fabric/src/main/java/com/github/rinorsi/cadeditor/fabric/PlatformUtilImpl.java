@@ -1,5 +1,6 @@
 package com.github.rinorsi.cadeditor.fabric;
 
+import com.github.rinorsi.cadeditor.common.ServerContext;
 import com.github.rinorsi.cadeditor.common.network.NetworkHandler;
 import com.github.rinorsi.cadeditor.common.network.PacketSerializer;
 import net.fabricmc.api.EnvType;
@@ -10,7 +11,7 @@ import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 
 import java.nio.file.Path;
@@ -27,19 +28,32 @@ public final class PlatformUtilImpl {
         return FabricLoader.getInstance().getConfigDir();
     }
 
+    public static String getModVersion() {
+        return FabricLoader.getInstance().getModContainer(com.github.rinorsi.cadeditor.common.ModConstants.MOD_ID)
+                .map(container -> container.getMetadata().getVersion().getFriendlyString())
+                .orElse("unknown");
+    }
+
     public static <P> void sendToServer(NetworkHandler.Server<P> handler, P packet) {
         ClientPlayNetworking.send(wrap(handler, packet));
     }
 
     public static <P> void sendToClient(ServerPlayer player, NetworkHandler.Client<P> handler, P packet) {
-        ServerPlayNetworking.send(player, wrap(handler, packet));
+        try {
+            ServerPlayNetworking.send(player, wrap(handler, packet));
+        } catch (Exception e) {
+            // Client may not have the mod installed - silently ignore
+        }
     }
 
     public static <P> void registerServerHandler(NetworkHandler.Server<P> handler) {
         CustomPacketPayload.Type<WrappedPayload<P>> type = type(handler);
         PayloadTypeRegistry.playC2S().register(type, codec(handler));
-        ServerPlayNetworking.registerGlobalReceiver(type, (payload, context) ->
-                context.server().execute(() -> handler.getPacketHandler().handle(context.player(), payload.packet())));
+        ServerPlayNetworking.registerGlobalReceiver(type, (payload, context) -> {
+            ServerPlayer player = context.player();
+            ServerContext.markClientModded(player);
+            context.server().execute(() -> handler.getPacketHandler().handle(player, payload.packet()));
+        });
     }
 
     public static <P> void registerClientHandler(NetworkHandler.Client<P> handler) {
@@ -62,7 +76,7 @@ public final class PlatformUtilImpl {
     }
 
     private static CustomPacketPayload.Type<?> createType(NetworkHandler<?> handler) {
-        Identifier location = handler.getLocation();
+        ResourceLocation location = handler.getLocation();
         return new CustomPacketPayload.Type<>(location);
     }
 

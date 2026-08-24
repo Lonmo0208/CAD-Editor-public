@@ -6,6 +6,7 @@ import com.github.rinorsi.cadeditor.client.ClientEventHandler;
 import com.github.rinorsi.cadeditor.client.ClientInit;
 import com.github.rinorsi.cadeditor.client.KeyBindings;
 import com.github.rinorsi.cadeditor.client.ModScreenHandler;
+import com.github.rinorsi.cadeditor.client.RainbowNameHandler;
 import com.github.rinorsi.cadeditor.common.CommonInit;
 import com.github.rinorsi.cadeditor.common.ServerCommandHandler;
 import com.github.rinorsi.cadeditor.common.ServerEventHandler;
@@ -21,6 +22,7 @@ import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
 import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.neoforged.fml.loading.FMLEnvironment;
 import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
+import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.InputEvent;
 import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
 import net.neoforged.neoforge.client.event.ScreenEvent;
@@ -40,7 +42,7 @@ public final class ForgeCADEditorMod {
         modBus.addListener(this::onCommonInit);
         modBus.addListener(PlatformUtilImpl::registerPayloadHandlers);
 
-        if (FMLEnvironment.getDist() == Dist.CLIENT) {
+        if (FMLEnvironment.dist == Dist.CLIENT) {
             ClientInit.init();
             modBus.addListener(this::onClientInit);
             modBus.addListener(this::onRegisterKeybindings);
@@ -57,6 +59,7 @@ public final class ForgeCADEditorMod {
             NeoForge.EVENT_BUS.addListener(this::onKeyPressed);
             NeoForge.EVENT_BUS.addListener(this::onPlayerLoggingIn);
             NeoForge.EVENT_BUS.addListener(this::onPlayerLoggingOut);
+            NeoForge.EVENT_BUS.addListener(this::onClientTick);
         }
     }
 
@@ -84,12 +87,7 @@ public final class ForgeCADEditorMod {
 
     private void onPlayerLoggedIn(final PlayerEvent.PlayerLoggedInEvent event) {
         if (event.getEntity() instanceof ServerPlayer serverPlayer) {
-            var server = serverPlayer.level().getServer();
-            if (server != null) {
-                server.execute(() -> ServerEventHandler.onPlayerJoin(serverPlayer));
-            } else {
-                ServerEventHandler.onPlayerJoin(serverPlayer);
-            }
+            ServerEventHandler.onPlayerJoin(serverPlayer);
         }
     }
 
@@ -117,9 +115,11 @@ public final class ForgeCADEditorMod {
 
     private void onKeyPressed(final ScreenEvent.KeyPressed.Pre event) {
         if (event.getScreen() instanceof AbstractContainerScreen<?> screen) {
-            event.setCanceled(ClientEventHandler.onScreenEvent(screen, event.getKeyCode(), event.getScanCode(), event.getModifiers()));
+            event.setCanceled(ClientEventHandler.onScreenEvent(screen, event.getKeyCode(), event.getScanCode()));
         }
     }
+
+    private void onClientTick(final ClientTickEvent.Post event) {
+        RainbowNameHandler.onClientTick();
+    }
 }
-
-

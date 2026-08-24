@@ -1,7 +1,6 @@
 package com.github.rinorsi.cadeditor.client.screen.controller.selection.element;
 
 import com.github.franckyi.guapi.api.mvc.AbstractController;
-import com.github.rinorsi.cadeditor.client.debug.DebugLog;
 import com.github.rinorsi.cadeditor.client.screen.model.selection.element.ListSelectionElementModel;
 import com.github.rinorsi.cadeditor.client.screen.model.selection.element.SelectableListSelectionElementModel;
 import com.github.rinorsi.cadeditor.client.screen.view.selection.element.ListSelectionElementView;
@@ -27,10 +26,7 @@ public class ListSelectionElementController<M extends ListSelectionElementModel,
         view.getIdLabel().setLabel(text(model.getId().toString()).withStyle(ChatFormatting.ITALIC));
         if (model instanceof SelectableListSelectionElementModel selectable) {
             view.enableSelection();
-            var checkBox = view.getSelectionCheckBox();
-            checkBox.checkedProperty().bindBidirectional(selectable.selectedProperty());
-            checkBox.onAction(() -> DebugLog.ui("list_selection_toggle",
-                    () -> "entry=" + model.getId() + " state=" + selectable.isSelected()));
+            view.getSelectionCheckBox().checkedProperty().bindBidirectional(selectable.selectedProperty());
             updateDisplayName();
         }
     }

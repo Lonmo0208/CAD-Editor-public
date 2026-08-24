@@ -13,10 +13,7 @@ public enum SyntaxHighlightingPreset {
             ChatFormatting.AQUA,
             ChatFormatting.DARK_GRAY,
             ChatFormatting.GRAY,
-            ChatFormatting.DARK_GRAY,
-            ChatFormatting.AQUA,
-            ChatFormatting.RED,
-            ChatFormatting.DARK_RED
+            ChatFormatting.DARK_GRAY
     )),
     VSCODE("vscode", new SyntaxHighlightingPalette(
             ChatFormatting.GOLD,
@@ -25,10 +22,7 @@ public enum SyntaxHighlightingPreset {
             ChatFormatting.BLUE,
             ChatFormatting.DARK_GRAY,
             ChatFormatting.GRAY,
-            ChatFormatting.DARK_AQUA,
-            ChatFormatting.AQUA,
-            ChatFormatting.RED,
-            ChatFormatting.DARK_RED
+            ChatFormatting.DARK_AQUA
     )),
     MONOKAI("monokai", new SyntaxHighlightingPalette(
             ChatFormatting.GREEN,
@@ -37,10 +31,7 @@ public enum SyntaxHighlightingPreset {
             ChatFormatting.BLUE,
             ChatFormatting.DARK_GRAY,
             ChatFormatting.GRAY,
-            ChatFormatting.DARK_PURPLE,
-            ChatFormatting.AQUA,
-            ChatFormatting.RED,
-            ChatFormatting.DARK_RED
+            ChatFormatting.DARK_PURPLE
     )),
     SOLARIZED("solarized", new SyntaxHighlightingPalette(
             ChatFormatting.DARK_AQUA,
@@ -49,10 +40,7 @@ public enum SyntaxHighlightingPreset {
             ChatFormatting.BLUE,
             ChatFormatting.DARK_GRAY,
             ChatFormatting.GRAY,
-            ChatFormatting.DARK_AQUA,
-            ChatFormatting.AQUA,
-            ChatFormatting.RED,
-            ChatFormatting.DARK_RED
+            ChatFormatting.DARK_AQUA
     ));
 
     private final String id;
