@@ -17,9 +17,6 @@ import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Client-side: intercepts item name and tooltip rendering, adds dynamic rainbow effect for the OP golden sword.
- */
 @Mixin(ItemStack.class)
 public abstract class ItemStackMixin {
 
@@ -27,15 +24,7 @@ public abstract class ItemStackMixin {
     private void cadeditor$getHoverName(CallbackInfoReturnable<Component> cir) {
         ItemStack stack = (ItemStack) (Object) this;
         if (RainbowNameHandler.isOpSword(stack)) {
-            Component originalName = stack.get(DataComponents.CUSTOM_NAME);
-            if (originalName == null) {
-                originalName = Component.literal("寰宇陨神剑");
-            }
-
-            // Build rainbow name
-            String text = originalName.getString();
-
-            cir.setReturnValue(RainbowNameHandler.getRainbowName(text));
+            cir.setReturnValue(RainbowNameHandler.getLocalizedRainbowName());
             cir.cancel();
         }
     }
@@ -49,39 +38,73 @@ public abstract class ItemStackMixin {
         }
 
         List<Component> originalLines = cir.getReturnValue();
-        List<Component> newLines = new ArrayList<>();
-        List<String> loreTexts = RainbowNameHandler.getOpSwordLoreLines(stack);
+        List<String> localizedLore = RainbowNameHandler.getLocalizedLoreLines();
+        List<String> nbtLore = RainbowNameHandler.getOpSwordLoreLinesForMatch(stack);
 
-        for (Component line : originalLines) {
-            String lineStr = line.getString();
+        List<Component> result = new ArrayList<>();
+        int lastAttrIndex = -1;
+        int loreInsertAt = -1;
 
-            // Lore lines: replace with rainbow italic (35% brightness)
-            boolean replaced = false;
-            for (String loreText : loreTexts) {
-                if (lineStr.equals(loreText)) {
-                    newLines.add(RainbowNameHandler.getRainbowLoreLine(loreText));
-                    replaced = true;
-                    break;
-                }
-            }
-            if (replaced) {
+        for (int i = 0; i < originalLines.size(); i++) {
+            String lineStr = originalLines.get(i).getString();
+            String trimmed = lineStr.trim();
+
+            // Replace attribute lines with rainbow Infinite
+            if (RainbowNameHandler.isInfiniteAttributeLine(lineStr)) {
+                boolean isDamage = RainbowNameHandler.isAttackDamageLine(lineStr);
+                result.add(RainbowNameHandler.getRainbowInfiniteLine(isDamage));
+                lastAttrIndex = result.size() - 1;
                 continue;
             }
 
-            // Replace the ∞ of attack damage and attack speed with rainbow Infinite
-            if (lineStr.contains("∞") && (lineStr.contains("攻击伤害") || lineStr.contains("Attack Damage")
-                    || lineStr.contains("攻击速度") || lineStr.contains("Attack Speed"))) {
-
-                if (lineStr.contains("攻击伤害") || lineStr.contains("Attack Damage")) {
-                    newLines.add(RainbowNameHandler.getRainbowInfiniteLine("攻击伤害"));
-                } else {
-                    newLines.add(RainbowNameHandler.getRainbowInfiniteLine("攻击速度"));
+            // Detect and skip lore lines (we insert localized version)
+            // Skip blank lines between lore entries too
+            if (isLoreLine(trimmed, localizedLore, nbtLore)) {
+                // Remember where to insert lore: right after the name section, before attributes
+                if (loreInsertAt == -1 && lastAttrIndex == -1) {
+                    // First lore line encountered — lore should go in the blank line before this
+                    loreInsertAt = result.size();
                 }
-            } else {
-                newLines.add(line);
+                continue;
             }
+
+            // Blank lines after name section and before first attribute are lore spacers — skip them
+            if (trimmed.isEmpty() && lastAttrIndex == -1 && loreInsertAt != -1) {
+                continue;
+            }
+
+            result.add(originalLines.get(i));
         }
 
-        cir.setReturnValue(newLines);
+        // Insert localized rainbow lore at the right position
+        if (loreInsertAt != -1) {
+            List<Component> finalResult = new ArrayList<>();
+            for (int i = 0; i < result.size(); i++) {
+                if (i == loreInsertAt) {
+                    for (String loreLine : localizedLore) {
+                        finalResult.add(RainbowNameHandler.getRainbowLoreLine(loreLine));
+                    }
+                }
+                finalResult.add(result.get(i));
+            }
+            cir.setReturnValue(finalResult);
+        } else {
+            cir.setReturnValue(result);
+        }
+    }
+
+    /**
+     * Checks if a line is a lore line that should be replaced.
+     * Matches against both localized (client-side) and NBT-stored (server-side) lore text.
+     */
+    private static boolean isLoreLine(String trimmed, List<String> localizedLore, List<String> nbtLore) {
+        if (trimmed.isEmpty()) return false;
+        for (String lore : localizedLore) {
+            if (!lore.isEmpty() && trimmed.equals(lore.trim())) return true;
+        }
+        for (String lore : nbtLore) {
+            if (!lore.isEmpty() && trimmed.equals(lore.trim())) return true;
+        }
+        return false;
     }
 }

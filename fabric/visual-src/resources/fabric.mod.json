@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "id": "opswordvisual",
+  "version": "1.0.0",
+  "name": "OpSword Visual",
+  "description": "A pure client-side visual mod that displays the rainbow scrolling effect for the OP golden sword. Only provides visual effects, no CAD Editor functions.",
+  "license": "MIT",
+  "environment": "client",
+  "entrypoints": {
+    "main": [
+      "com.github.rinorsi.opswordvisual.fabric.FabricOpswordVisualMod"
+    ],
+    "client": [
+      "com.github.rinorsi.opswordvisual.fabric.FabricOpswordVisualModClient"
+    ]
+  },
+  "mixins": [
+    "opswordvisual.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=0.16.12",
+    "fabric-api": ">=0.116.0+1.21.1",
+    "minecraft": "1.21.1",
+    "java": ">=21"
+  }
+}

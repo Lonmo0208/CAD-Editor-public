@@ -152,3 +152,114 @@ jar { archiveClassifier = "dev" }
 java { toolchain { languageVersion = JavaLanguageVersion.of(21) } }
 
 tasks.withType(JavaCompile).configureEach { options.encoding = "UTF-8" }
+
+// ============ Visual-only client mod build ============
+// Pure client-side visual mod containing only the OP sword rainbow effect.
+// Reuses the existing RainbowNameHandler and ItemStackMixin from the main project,
+// adds a lightweight entrypoint that only calls onClientTick, and replaces mod metadata.
+// Contains ZERO CAD editor functions — no network, no permission, no NBT editing code.
+
+sourceSets {
+    visual {
+        java {
+            srcDir 'visual-src/java'
+        }
+        resources {
+            srcDir 'visual-src/resources'
+        }
+        compileClasspath += sourceSets.main.compileClasspath
+        runtimeClasspath += sourceSets.main.runtimeClasspath
+    }
+}
+
+tasks.named('compileVisualJava') {
+    options.encoding = "UTF-8"
+    options.release = 21
+    classpath = sourceSets.main.compileClasspath + sourceSets.visual.compileClasspath
+}
+
+tasks.register('visualJar', Jar) { t ->
+    dependsOn compileVisualJava, processVisualResources, remapJar
+    archiveClassifier = 'fabric-visual'
+    destinationDirectory = layout.buildDirectory.dir('libs')
+
+    from(sourceSets.visual.output.classesDirs)
+    from(file("visual-src/resources"))
+
+    from(zipTree(remapJar.archiveFile)) {
+        include 'com/github/rinorsi/cadeditor/client/RainbowNameHandler*.class'
+        include 'com/github/rinorsi/cadeditor/mixin/ItemStackMixin*.class'
+    }
+
+    // 只排除 LICENSE/README 等无关文件；不能排除 visual-src/resources 里我们自己的资源
+    exclude 'META-INF/LICENSE'
+    exclude 'META-INF/LICENSE.txt'
+    exclude 'META-INF/NOTICE'
+    exclude 'META-INF/NOTICE.txt'
+    exclude 'META-INF/ATTRIBUTION.txt'
+    exclude 'META-INF/README.md'
+    exclude 'META-INF/cadeditor.accesswidener'
+
+    manifest {
+        attributes(
+            'Manifest-Version': '1.0',
+            'Implementation-Title': 'opswordvisual',
+            'Implementation-Version': '1.0.0',
+            'Implementation-Vendor': 'opswordvisual',
+            'MixinConfigs': 'opswordvisual.mixins.json',
+            'MixinVersion': '0.8.7',
+            'Fabric-Mixin-Version': '0.15.4+mixin.0.8.7'
+        )
+    }
+
+    t.doLast { task ->
+        def jarFile = task.archiveFile.get().asFile
+        def mfText = "Manifest-Version: 1.0\r\n" +
+                     "Implementation-Title: opswordvisual\r\n" +
+                     "Implementation-Version: 1.0.0\r\n" +
+                     "Implementation-Vendor: opswordvisual\r\n" +
+                     "MixinConfigs: opswordvisual.mixins.json\r\n" +
+                     "MixinVersion: 0.8.7\r\n" +
+                     "Fabric-Mixin-Version: 0.15.4+mixin.0.8.7\r\n\r\n"
+        def mfBytes = mfText.getBytes("UTF-8")
+        def tempFile = new File(jarFile.parentFile, jarFile.name + ".tmp")
+        def buffer = new byte[65536]
+        def zos = null
+        def zis = null
+        try {
+            zos = new java.util.zip.ZipOutputStream(new FileOutputStream(tempFile))
+            zis = new java.util.zip.ZipFile(jarFile)
+            def entries = zis.entries()
+            while (entries.hasMoreElements()) {
+                def entry = entries.nextElement()
+                if (entry.getName().equals("META-INF/MANIFEST.MF")) {
+                    def newEntry = new java.util.zip.ZipEntry("META-INF/MANIFEST.MF")
+                    zos.putNextEntry(newEntry)
+                    zos.write(mfBytes)
+                    zos.closeEntry()
+                } else {
+                    def newEntry = new java.util.zip.ZipEntry(entry.getName())
+                    zos.putNextEntry(newEntry)
+                    def input = zis.getInputStream(entry)
+                    int len
+                    while ((len = input.read(buffer)) > 0) {
+                        zos.write(buffer, 0, len)
+                    }
+                    input.close()
+                    zos.closeEntry()
+                }
+            }
+        } finally {
+            if (zis != null) zis.close()
+            if (zos != null) zos.close()
+        }
+        jarFile.delete()
+        tempFile.renameTo(jarFile)
+    }
+
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+
+tasks.named('build') {
+    dependsOn serverOnlyJar, visualJar
+}

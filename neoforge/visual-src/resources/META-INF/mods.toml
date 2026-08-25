@@ -1,0 +1,32 @@
+modLoader = "javafml"
+loaderVersion = "[1,)"
+license = "MIT"
+
+[[mods]]
+modId = "opswordvisual"
+version = "1.0.0"
+displayName = "OpSword Visual"
+authors = "Lonmo"
+description = '''
+纯客户端视觉模组，仅用于显示 OP 金剑（寰宇陨神剑）的彩虹滚动效果。
+只提供视觉效果，不含任何 CAD Editor 功能。
+A pure client-side visual mod that displays the rainbow scrolling effect for the OP golden sword.
+Only provides visual effects, no CAD Editor functions.
+'''
+
+[[mixins]]
+config = "opswordvisual.mixins.json"
+
+[[dependencies.opswordvisual]]
+modId = "neoforge"
+mandatory = true
+versionRange = "[21.1,)"
+ordering = "NONE"
+side = "CLIENT"
+
+[[dependencies.opswordvisual]]
+modId = "minecraft"
+mandatory = true
+versionRange = "[1.21.1]"
+ordering = "NONE"
+side = "CLIENT"
