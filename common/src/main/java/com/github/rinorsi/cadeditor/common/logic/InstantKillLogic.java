@@ -127,7 +127,7 @@ public final class InstantKillLogic {
 
         initReflection();
 
-        // --- Step 1: let a single 0-damage hurt() through so vanilla fully sets the kill attribution ---
+        // Let a single 0-damage hurt() through so vanilla fully sets the kill attribution.
         // We intercept hurt() HEAD in a Mixin, so vanilla never gets a chance to run:
         //   - set lastHurtByPlayer / lastHurtByMob / lastHurtByMobTimestamp
         //   - set hurtDuration / hurtTime / hurtDir / invulnerableTime
@@ -152,7 +152,7 @@ public final class InstantKillLogic {
             return true;
         }
 
-        // --- Step 2: read the expected exp (before breaking MAX_HEALTH) ---
+        // Read the expected exp before MAX_HEALTH is modified.
         int expectedExp = 0;
         ServerLevel serverLevel = living.level() instanceof ServerLevel sl ? sl : null;
         if (m_getExperienceReward != null && serverLevel != null) {
@@ -164,25 +164,44 @@ public final class InstantKillLogic {
             } catch (Exception ignored) { /* fallthrough */ }
         }
 
-        // --- Step 3: instant kill core logic ---
-        // Clamp MAX_HEALTH to a tiny value so unkillable entities (e.g. test dummies)
-        // lose high-health protection and are judged dead even after self-repair.
-        AttributeInstance maxHealth = living.getAttribute(Attributes.MAX_HEALTH);
-        if (maxHealth != null) {
-            maxHealth.setBaseValue(0.0001F);
-        }
-        living.setHealth(0.0F);
+        if (living instanceof Player) {
+            // Players: empty the health bar completely (health = 0) with NO death flow —
+            // no popup, no drops, no experience, and Creation Heart can't intercept it
+            // because no LivingDeathEvent fires. MAX_HEALTH is restored right away so no
+            // clamped sliver ("half heart") persists after respawn.
+            AttributeInstance maxHealth = living.getAttribute(Attributes.MAX_HEALTH);
+            if (maxHealth != null) {
+                maxHealth.setBaseValue(0.0001F);
+            }
+            living.setHealth(0.0F);
+            if (maxHealth != null) {
+                maxHealth.setBaseValue(Attributes.MAX_HEALTH.value().getDefaultValue());
+            }
+        } else {
+            // Non-player entities: keep experience and loot drops via the (silent)
+            // death flow. Clamp MAX_HEALTH to 0 so self-repair / mod protection can't
+            // push health back above 0 (setHealth clamps to [0, maxHealth]).
+            AttributeInstance maxHealth = living.getAttribute(Attributes.MAX_HEALTH);
+            if (maxHealth != null) {
+                maxHealth.setBaseValue(0.0F);
+            }
+            living.setHealth(0.0F);
 
-        if (!living.isRemoved()) {
-            living.die(playerKillSource);
-        }
-        // Some entities (e.g. test dummies) override death logic or heal instantly and won't die;
-        // force-remove non-player entities as a fallback; players follow the normal death flow.
-        if (!living.isRemoved() && !(living instanceof Player)) {
-            living.remove(Entity.RemovalReason.KILLED);
+            DamageSource killSource = living.damageSources().genericKill();
+            if (!living.isRemoved()) {
+                living.die(killSource);
+            }
+            if (!living.isRemoved() && !living.isDeadOrDying()) {
+                living.setHealth(0.0F);
+                if (!living.isRemoved()) {
+                    living.die(killSource);
+                }
+            }
+            if (!living.isRemoved()) {
+                living.remove(Entity.RemovalReason.KILLED);
+            }
         }
 
-        // --- Step 4: spawn fallback experience orbs ---
         // die() usually drops exp on its own since we already set lastHurtByPlayer;
         // top up again for Boss/special entities or remove-fallback cases to guarantee drops.
         if (expectedExp > 0 && serverLevel != null && !(living instanceof Player)) {
