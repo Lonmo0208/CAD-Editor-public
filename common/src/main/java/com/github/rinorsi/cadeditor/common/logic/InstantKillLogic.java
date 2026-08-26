@@ -108,7 +108,7 @@ public final class InstantKillLogic {
         }
         if (f_lastHurtByMobTimestamp != null) {
             try {
-                f_lastHurtByMobTimestamp.setLong(entity, entity.level().getGameTime());
+                f_lastHurtByMobTimestamp.setInt(entity, (int) entity.level().getGameTime());
             } catch (IllegalAccessException ignored) { /* no-op */ }
         }
     }
@@ -395,7 +395,7 @@ public final class InstantKillLogic {
                 // but the field didn't get updated, we can still detect recent attacks
                 if (f_lastHurtByMobTimestamp != null) {
                     try {
-                        long timestamp = f_lastHurtByMobTimestamp.getLong(entity);
+                        int timestamp = f_lastHurtByMobTimestamp.getInt(entity);
                         // Attack was within last 20 ticks (1 second)
                         if (timestamp > 0 && currentTime - timestamp <= 20) {
                             // Check if lastHurtByMob is the player or if we need to check via lastHurtByPlayer
