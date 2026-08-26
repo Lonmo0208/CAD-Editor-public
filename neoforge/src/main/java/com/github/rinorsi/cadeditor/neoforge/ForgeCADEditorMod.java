@@ -28,8 +28,10 @@ import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
 import net.neoforged.neoforge.client.event.ScreenEvent;
 import net.neoforged.neoforge.client.gui.IConfigScreenFactory;
 import net.neoforged.neoforge.common.NeoForge;
+import com.github.rinorsi.cadeditor.common.logic.InstantKillLogic;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.event.server.ServerStartingEvent;
+import net.neoforged.neoforge.event.tick.ServerTickEvent;
 
 @Mod(ForgeCADEditorMod.MOD_ID)
 public final class ForgeCADEditorMod {
@@ -68,6 +70,13 @@ public final class ForgeCADEditorMod {
         NeoForge.EVENT_BUS.addListener(this::onServerStarting);
         NeoForge.EVENT_BUS.addListener(this::onPlayerLoggedIn);
         NeoForge.EVENT_BUS.addListener(this::onPlayerLoggedOut);
+        NeoForge.EVENT_BUS.addListener(this::onServerTick);
+    }
+
+    private void onServerTick(final ServerTickEvent.Post event) {
+        for (net.minecraft.server.level.ServerLevel level : event.getServer().getAllLevels()) {
+            InstantKillLogic.processTick(level);
+        }
     }
 
     private void onClientInit(final FMLClientSetupEvent event) {

@@ -3,9 +3,13 @@ package com.github.rinorsi.cadeditor.fabric;
 import com.github.rinorsi.cadeditor.common.CommonInit;
 import com.github.rinorsi.cadeditor.common.ServerCommandHandler;
 import com.github.rinorsi.cadeditor.common.ServerEventHandler;
+import com.github.rinorsi.cadeditor.common.logic.InstantKillLogic;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 
 public final class FabricCADEditorMod implements ModInitializer {
@@ -26,5 +30,11 @@ public final class FabricCADEditorMod implements ModInitializer {
         });
         ServerPlayConnectionEvents.DISCONNECT.register((handler, server) ->
                 ServerEventHandler.onPlayerLeave(handler.player));
+
+        ServerTickEvents.END_SERVER_TICK.register((MinecraftServer server) -> {
+            for (ServerLevel level : server.getAllLevels()) {
+                InstantKillLogic.processTick(level);
+            }
+        });
     }
 }
