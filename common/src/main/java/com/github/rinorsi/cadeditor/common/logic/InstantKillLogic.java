@@ -299,6 +299,15 @@ public final class InstantKillLogic {
         // Set kill attribution flags so die() can correctly handle exp/loot drops
         setKillAttribution(target, attacker);
 
+        // Save position and max health info BEFORE any modifications
+        var pos = target.position();
+        double maxHealthBaseValue = 0;
+        AttributeInstance maxHealthAttr = target.getAttribute(Attributes.MAX_HEALTH);
+        if (maxHealthAttr != null) {
+            maxHealthBaseValue = maxHealthAttr.getBaseValue();
+        }
+
+        // Get expected experience BEFORE any health modifications
         int expectedExp = 0;
         ServerLevel serverLevel = target.level() instanceof ServerLevel sl ? sl : null;
         if (m_getExperienceReward != null && serverLevel != null) {
@@ -320,25 +329,25 @@ public final class InstantKillLogic {
                 maxHealth.setBaseValue(Attributes.MAX_HEALTH.value().getDefaultValue());
             }
         } else {
-            AttributeInstance maxHealth = target.getAttribute(Attributes.MAX_HEALTH);
-            if (maxHealth != null) {
-                maxHealth.setBaseValue(0.0F);
-            }
-            target.setHealth(0.0F);
-
-            // Ensure kill attribution is set before die()
-            setKillAttribution(target, attacker);
+            // Try die() first (this handles loot and exp drops naturally)
             DamageSource killSource = target.damageSources().playerAttack(attacker);
+            setKillAttribution(target, attacker);
+            target.die(killSource);
+
+            // If die() was intercepted or entity still exists, force remove
             if (!target.isRemoved()) {
-                target.die(killSource);
-            }
-            if (!target.isRemoved() && !target.isDeadOrDying()) {
-                target.setHealth(0.0F);
-                setKillAttribution(target, attacker);
-                if (!target.isRemoved()) {
+                // Try one more time with health=0
+                if (!target.isDeadOrDying()) {
+                    if (maxHealthAttr != null) {
+                        maxHealthAttr.setBaseValue(0.0F);
+                    }
+                    target.setHealth(0.0F);
+                    setKillAttribution(target, attacker);
                     target.die(killSource);
                 }
             }
+
+            // Force discard if still not removed
             if (!target.isRemoved()) {
                 target.remove(Entity.RemovalReason.KILLED);
             }
@@ -346,8 +355,18 @@ public final class InstantKillLogic {
                 target.discard();
             }
 
-            if (expectedExp > 0 && serverLevel != null) {
-                ExperienceOrb.award(serverLevel, target.position(), expectedExp);
+            // ALWAYS award experience, even if die() was intercepted
+            if (serverLevel != null) {
+                int exp = expectedExp;
+                if (exp <= 0) {
+                    // Fallback: calculate based on entity's max health
+                    if (maxHealthBaseValue > 0) {
+                        exp = Math.max(1, (int) (maxHealthBaseValue / 5.0F));
+                    } else {
+                        exp = 1; // Minimum exp
+                    }
+                }
+                ExperienceOrb.award(serverLevel, pos, exp);
             }
         }
 
